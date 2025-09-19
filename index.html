@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>رصد ارزهای دیجیتالی - نسخه بهینه</title>
+    <title>رصد ارزهای دیجیتالی - نسخه کامل</title>
     <style>
         * {
             margin: 0;
@@ -46,6 +46,17 @@
         .header p {
             font-size: 12px;
             opacity: 0.9;
+        }
+        
+        .cache-info {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .search-section {
@@ -174,6 +185,10 @@
             transform: scale(1.05);
         }
         
+        .coin-tag.active {
+            background: #e74c3c;
+        }
+        
         .info-section {
             background: white;
             padding: 20px;
@@ -207,20 +222,21 @@
             font-size: 14px;
         }
         
-        .widget-container {
-            width: 100%;
-            min-height: 500px;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #f8f9fa;
-        }
-        
         .chart-container {
             width: 100%;
-            height: 750px; /* Increased height significantly */
+            height: 750px;
             border-radius: 8px;
             overflow: hidden;
             background: #ffffff;
+        }
+        
+        .mini-chart-container {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            margin: 10px 0;
         }
         
         .loading {
@@ -256,6 +272,10 @@
         
         .price-card.error {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .price-card.cached {
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
         }
         
         .price-card:hover {
@@ -353,6 +373,11 @@
             border-radius: 10px;
             text-align: center;
             transition: all 0.3s;
+            position: relative;
+        }
+        
+        .indicator-card.updating {
+            background: linear-gradient(135deg, #3498db, #2980b9);
         }
         
         .indicator-card:hover {
@@ -375,6 +400,80 @@
             font-size: 11px;
             margin-top: 5px;
             opacity: 0.8;
+        }
+        
+        .indicator-timestamp {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 8px;
+            opacity: 0.7;
+        }
+        
+        /* Fear & Greed Section */
+        .fear-greed-section {
+            background: white;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .fear-greed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .fear-greed-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            border: 2px solid #e9ecef;
+        }
+        
+        .fear-greed-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-color: #3498db;
+        }
+        
+        .fear-greed-card h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .fear-greed-widget {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .fear-greed-widget img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+        
+        /* Dominance Chart */
+        .dominance-section {
+            background: white;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .dominance-chart {
+            width: 100%;
+            height: 400px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
         }
         
         /* News Section */
@@ -438,6 +537,11 @@
             border-left: 4px solid #3498db;
         }
         
+        .news-item.live {
+            border-left-color: #e74c3c;
+            background: #fff5f5;
+        }
+        
         .news-item:hover {
             transform: translateX(-5px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -499,12 +603,33 @@
             100% { transform: rotate(360deg); }
         }
         
+        .cache-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            z-index: 1000;
+        }
+        
+        .cache-status.online {
+            background: rgba(39, 174, 96, 0.9);
+        }
+        
+        .cache-status.offline {
+            background: rgba(231, 76, 60, 0.9);
+        }
+        
         @media (max-width: 768px) {
             .container {
                 padding: 5px;
             }
             
-            .search-section, .info-section, .widget-section, .news-section, .indicators-section {
+            .search-section, .info-section, .widget-section, .news-section, 
+            .indicators-section, .fear-greed-section, .dominance-section {
                 padding: 15px;
                 margin-bottom: 15px;
             }
@@ -518,7 +643,11 @@
             }
             
             .chart-container {
-                height: 550px; /* Reduced for mobile but still good */
+                height: 550px;
+            }
+            
+            .mini-chart-container {
+                height: 250px;
             }
             
             .price-display {
@@ -531,23 +660,29 @@
                 gap: 10px;
             }
             
-            .price-card {
-                padding: 12px;
+            .fear-greed-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
             }
             
-            .tabs {
-                font-size: 12px;
+            .dominance-chart {
+                height: 300px;
             }
             
-            .tab {
-                padding: 10px 12px;
-                font-size: 11px;
+            .cache-status {
+                bottom: 10px;
+                left: 10px;
+                font-size: 10px;
             }
         }
         
         @media (max-width: 480px) {
             .chart-container {
                 height: 450px;
+            }
+            
+            .mini-chart-container {
+                height: 200px;
             }
             
             .coin-tag {
@@ -630,6 +765,10 @@
             background: #3498db;
         }
         
+        .notification.cache {
+            background: #8e44ad;
+        }
+        
         .update-indicator {
             position: absolute;
             top: 5px;
@@ -646,24 +785,29 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🚀 مرکز رصد ارزهای دیجیتالی - نسخه بهینه</h1>
-            <p>تحلیل جامع بازار کریپتو با اندیکاتورها <span class="status-indicator"></span></p>
+            <h1>🚀 مرکز رصد ارزهای دیجیتالی - نسخه نهایی</h1>
+            <p>تحلیل جامع بازار کریپتو با ویجت‌های پیشرفته <span class="status-indicator"></span></p>
+        </div>
+
+        <!-- Cache Info -->
+        <div class="cache-info" id="cacheInfo">
+            💾 تنظیمات شما ذخیره شده است | آخرین به‌روزرسانی: <span id="cacheTime">در حال بارگذاری...</span>
         </div>
 
         <!-- Search Section -->
         <div class="search-section">
-            <h3>🔍 جستجوی هوشمند ارز</h3>
+            <h3>🔍 جستجوی هوشمند ارز (با ذخیره‌سازی)</h3>
             <div class="search-container">
                 <input type="text" id="cryptoSearch" class="search-box" placeholder="نام ارز یا سمبل را تایپ کنید..." autocomplete="off">
                 <div id="searchDropdown" class="search-dropdown"></div>
             </div>
             <div class="search-suggestions">
-                <button class="coin-tag" onclick="selectCoin('bitcoin', 'BTC', 'Bitcoin')">Bitcoin (BTC) 🟠</button>
-                <button class="coin-tag" onclick="selectCoin('ethereum', 'ETH', 'Ethereum')">Ethereum (ETH) 🔵</button>
-                <button class="coin-tag" onclick="selectCoin('cardano', 'ADA', 'Cardano')">Cardano (ADA) 🔴</button>
-                <button class="coin-tag" onclick="selectCoin('solana', 'SOL', 'Solana')">Solana (SOL) 🟣</button>
-                <button class="coin-tag" onclick="selectCoin('ripple', 'XRP', 'XRP')">Ripple (XRP) ⚫</button>
-                <button class="coin-tag" onclick="selectCoin('litecoin', 'LTC', 'Litecoin')">Litecoin (LTC) 🔘</button>
+                <button class="coin-tag" onclick="selectCoin('bitcoin', 'BTC', 'Bitcoin')" data-coin="bitcoin">Bitcoin (BTC) 🟠</button>
+                <button class="coin-tag" onclick="selectCoin('ethereum', 'ETH', 'Ethereum')" data-coin="ethereum">Ethereum (ETH) 🔵</button>
+                <button class="coin-tag" onclick="selectCoin('cardano', 'ADA', 'Cardano')" data-coin="cardano">Cardano (ADA) 🔴</button>
+                <button class="coin-tag" onclick="selectCoin('solana', 'SOL', 'Solana')" data-coin="solana">Solana (SOL) 🟣</button>
+                <button class="coin-tag" onclick="selectCoin('ripple', 'XRP', 'XRP')" data-coin="ripple">Ripple (XRP) ⚫</button>
+                <button class="coin-tag" onclick="selectCoin('litecoin', 'LTC', 'Litecoin')" data-coin="litecoin">Litecoin (LTC) 🔘</button>
             </div>
         </div>
 
@@ -692,11 +836,22 @@
                     <div class="update-indicator" id="capIndicator" style="display: none;"></div>
                 </div>
             </div>
+            
+            <!-- TradingView Mini Symbol Overview for Selected Coin -->
+            <div class="widget-title" style="margin-top: 20px;">📊 نمودار کوچک ارز انتخابی</div>
+            <div class="mini-chart-container">
+                <div id="mini_chart" class="tradingview-widget-container" style="height: 100%; width: 100%;">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        در حال بارگذاری نمودار کوچک...
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Chart Section with Maximum Height -->
+        <!-- Chart Section -->
         <div class="widget-section">
-            <div class="widget-title">📈 نمودار کندل استیک و تحلیل تکنیکال (750px ارتفاع)</div>
+            <div class="widget-title">📈 نمودار کندل استیک و تحلیل تکنیکال (750px)</div>
             <div class="chart-container">
                 <div id="tradingview_chart" class="tradingview-widget-container" style="height: 100%; width: 100%;">
                     <div class="loading">
@@ -709,37 +864,119 @@
 
         <!-- Technical Indicators Section -->
         <div class="indicators-section">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">📊 اندیکاتورهای تکنیکال</h3>
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">📊 اندیکاتورهای تکنیکال (زنده)</h3>
             <div class="indicators-grid">
-                <div class="indicator-card">
+                <div class="indicator-card" id="rsiCard">
+                    <div class="indicator-timestamp" id="rsiTime"></div>
                     <div class="indicator-name">RSI (14)</div>
-                    <div class="indicator-value" id="rsiValue">65.4</div>
-                    <div class="indicator-status" id="rsiStatus">خنثی</div>
+                    <div class="indicator-value" id="rsiValue">در حال بارگذاری...</div>
+                    <div class="indicator-status" id="rsiStatus">محاسبه...</div>
                 </div>
-                <div class="indicator-card">
+                <div class="indicator-card" id="macdCard">
+                    <div class="indicator-timestamp" id="macdTime"></div>
                     <div class="indicator-name">MACD</div>
-                    <div class="indicator-value" id="macdValue">+245.8</div>
-                    <div class="indicator-status" id="macdStatus">صعودی</div>
+                    <div class="indicator-value" id="macdValue">در حال بارگذاری...</div>
+                    <div class="indicator-status" id="macdStatus">محاسبه...</div>
                 </div>
-                <div class="indicator-card">
+                <div class="indicator-card" id="smaCard">
+                    <div class="indicator-timestamp" id="smaTime"></div>
                     <div class="indicator-name">SMA (50)</div>
-                    <div class="indicator-value" id="smaValue">$65,420</div>
-                    <div class="indicator-status" id="smaStatus">بالای میانگین</div>
+                    <div class="indicator-value" id="smaValue">در حال بارگذاری...</div>
+                    <div class="indicator-status" id="smaStatus">محاسبه...</div>
                 </div>
-                <div class="indicator-card">
+                <div class="indicator-card" id="emaCard">
+                    <div class="indicator-timestamp" id="emaTime"></div>
                     <div class="indicator-name">EMA (20)</div>
-                    <div class="indicator-value" id="emaValue">$66,890</div>
-                    <div class="indicator-status" id="emaStatus">روند صعودی</div>
+                    <div class="indicator-value" id="emaValue">در حال بارگذاری...</div>
+                    <div class="indicator-status" id="emaStatus">محاسبه...</div>
                 </div>
-                <div class="indicator-card">
+                <div class="indicator-card" id="stochCard">
+                    <div class="indicator-timestamp" id="stochTime"></div>
                     <div class="indicator-name">Stochastic</div>
-                    <div class="indicator-value" id="stochValue">42.8</div>
-                    <div class="indicator-status" id="stochStatus">فروش شده</div>
+                    <div class="indicator-value" id="stochValue">در حال بارگذاری...</div>
+                    <div class="indicator-status" id="stochStatus">محاسبه...</div>
                 </div>
-                <div class="indicator-card">
+                <div class="indicator-card" id="willRCard">
+                    <div class="indicator-timestamp" id="willRTime"></div>
                     <div class="indicator-name">Williams %R</div>
-                    <div class="indicator-value" id="willRValue">-35.2</div>
-                    <div class="indicator-status" id="willRStatus">خنثی</div>
+                    <div class="indicator-value" id="willRValue">در حال بارگذاری...</div>
+                    <div class="indicator-status" id="willRStatus">محاسبه...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fear & Greed Index Section with Multiple Sources -->
+        <div class="fear-greed-section">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">😰 شاخص ترس و طمع (چند منبع)</h3>
+            <div class="fear-greed-grid">
+                <!-- Alternative.me Fear & Greed Index -->
+                <div class="fear-greed-card">
+                    <h4>🔥 Alternative.me - شاخص اصلی</h4>
+                    <div class="fear-greed-widget">
+                        <script type="text/javascript" src="https://widget.alternative.me/widgets.js"></script>
+                        <div class="fng-widget" 
+                             data-url="https://api.alternative.me/fng/" 
+                             data-theme="light" 
+                             data-size="large">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- BitDegree Fear & Greed Index -->
+                <div class="fear-greed-card">
+                    <h4>📊 BitDegree - نسخه تصویری</h4>
+                    <div class="fear-greed-widget">
+                        <a href="https://www.bitdegree.org/cryptocurrency-prices/fear-and-greed-index" target="_blank">
+                            <img style="width: 100%; max-width: 500px;" 
+                                 src="https://assets.bitdegree.org/fear-and-greed-index/current.png" 
+                                 alt="BitDegree Crypto Fear and Greed Index"
+                                 id="bitDegreeImg">
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- CoinStats Fear & Greed Index -->
+                <div class="fear-greed-card">
+                    <h4>⚡ CoinStats - شاخص تعاملی</h4>
+                    <div class="fear-greed-widget">
+                        <iframe src="https://coinstats.app/widgets/fear-and-greed-index" 
+                                width="100%" 
+                                height="300" 
+                                frameborder="0" 
+                                scrolling="no"
+                                style="border-radius: 8px;">
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bitcoin Dominance Section -->
+        <div class="dominance-section">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">👑 سلطه بیت‌کوین</h3>
+            <div class="widget-title">📊 نمودار سلطه بیت‌کوین در بازار</div>
+            <div class="dominance-chart">
+                <!-- TradingView BTC Dominance Widget -->
+                <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
+                    <div class="tradingview-widget-container__widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+                    {
+                    "symbol": "CRYPTOCAP:BTC.D",
+                    "width": "100%",
+                    "height": "100%",
+                    "locale": "fa",
+                    "dateRange": "12M",
+                    "colorTheme": "light",
+                    "trendLineColor": "rgba(41, 98, 255, 1)",
+                    "underLineColor": "rgba(41, 98, 255, 0.3)",
+                    "underLineBottomColor": "rgba(41, 98, 255, 0)",
+                    "isTransparent": false,
+                    "autosize": true,
+                    "largeChartUrl": "",
+                    "chartOnly": false,
+                    "noTimeScale": false
+                    }
+                    </script>
                 </div>
             </div>
         </div>
@@ -748,17 +985,17 @@
         <div class="news-section">
             <div class="news-header">
                 <div class="news-title">
-                    📰 اخبار کانال Mini Exchange
-                    <span class="crypto-icons">🔔</span>
+                    📰 اخبار زنده @Mini_Exchange
+                    <span class="crypto-icons">🔴</span>
                 </div>
-                <button class="news-refresh" onclick="refreshNews()">
-                    🔄 بروزرسانی
+                <button class="news-refresh" onclick="refreshTelegramNews()">
+                    🔄 بروزرسانی زنده
                 </button>
             </div>
             <div id="newsContainer" class="news-container">
                 <div class="news-loading">
                     <div class="spinner"></div>
-                    <p>در حال اتصال به کانال @Mini_Exchange...</p>
+                    <p>در حال اتصال مستقیم به @Mini_Exchange...</p>
                 </div>
             </div>
         </div>
@@ -768,10 +1005,10 @@
             <div class="widget-title">⚡ ابزارهای تحلیلی</div>
             
             <div class="tabs">
-                <button class="tab active" onclick="openTab(event, 'overview')">📊 نمای کلی</button>
-                <button class="tab" onclick="openTab(event, 'screener')">🔍 غربالگر</button>
-                <button class="tab" onclick="openTab(event, 'heatmap')">🗺️ نقشه حرارتی</button>
-                <button class="tab" onclick="openTab(event, 'fear-greed')">😨 شاخص ترس</button>
+                <button class="tab active" onclick="openTab(event, 'overview')" data-tab="overview">📊 نمای کلی</button>
+                <button class="tab" onclick="openTab(event, 'screener')" data-tab="screener">🔍 غربالگر</button>
+                <button class="tab" onclick="openTab(event, 'heatmap')" data-tab="heatmap">🗺️ نقشه حرارتی</button>
+                <button class="tab" onclick="openTab(event, 'quotes')" data-tab="quotes">📋 جدول قیمت</button>
             </div>
 
             <!-- Overview Tab -->
@@ -851,19 +1088,37 @@
                 </div>
             </div>
 
-            <!-- Fear & Greed Index Tab -->
-            <div id="fear-greed" class="tab-content">
-                <div style="text-align: center; padding: 20px;">
-                    <h4>شاخص ترس و طمع بازار</h4>
-                    <p style="margin: 10px 0; color: #7f8c8d;">این شاخص احساسات کلی بازار ارزهای دیجیتالی را نشان می‌دهد</p>
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                        <div style="font-size: 48px; margin: 20px 0;">📊</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #e67e22;" id="fearGreedValue">65</div>
-                        <div style="color: #f39c12; font-weight: bold;" id="fearGreedStatus">طمع</div>
-                        <div style="margin-top: 15px; font-size: 12px; color: #7f8c8d;">
-                            آخرین به‌روزرسانی: <span id="fearGreedDate">امروز</span>
-                        </div>
-                    </div>
+            <!-- Market Quotes Tab -->
+            <div id="quotes" class="tab-content">
+                <div class="tradingview-widget-container">
+                    <div class="tradingview-widget-container__widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+                    {
+                    "title": "ارزهای دیجیتالی برتر",
+                    "title_raw": "Top Cryptocurrencies",
+                    "title_link": "/markets/cryptocurrencies/prices-all/",
+                    "width": "100%",
+                    "height": "400",
+                    "locale": "fa",
+                    "showSymbolLogo": true,
+                    "symbolsGroups": [
+                        {
+                        "name": "نمای کلی",
+                        "symbols": [
+                            {"name": "BINANCE:BTCUSDT", "displayName": "Bitcoin"},
+                            {"name": "BINANCE:ETHUSDT", "displayName": "Ethereum"},
+                            {"name": "BINANCE:SOLUSDT", "displayName": "Solana"},
+                            {"name": "BINANCE:AVAXUSDT", "displayName": "Avalanche"},
+                            {"name": "BINANCE:ADAUSDT", "displayName": "Cardano"},
+                            {"name": "BINANCE:XRPUSDT", "displayName": "XRP"},
+                            {"name": "BINANCE:LTCUSDT", "displayName": "Litecoin"},
+                            {"name": "BINANCE:DOGEUSDT", "displayName": "Dogecoin"}
+                        ]
+                        }
+                    ],
+                    "colorTheme": "light"
+                    }
+                    </script>
                 </div>
             </div>
         </div>
@@ -891,13 +1146,18 @@
 
         <!-- Footer -->
         <div class="footer">
-            <p>🔮 مرکز رصد ارزهای دیجیتالی | نسخه بهینه شده</p>
-            <p>💡 داده‌های زنده + اندیکاتورهای تکنیکال پیشرفته</p>
+            <p>🔮 مرکز رصد ارزهای دیجیتالی | نسخه نهایی کامل</p>
+            <p>💾 شامل: کش، شاخص ترس واقعی، نمودارهای پیشرفته</p>
             <p>🕐 آخرین به‌روزرسانی: <span id="lastUpdate"></span></p>
             <p style="font-size: 10px; margin-top: 10px; opacity: 0.8;">
-                منابع: TradingView, CoinMarketCap, CoinGecko, Telegram @Mini_Exchange
+                منابع: TradingView, Alternative.me, BitDegree, CoinStats, CoinGecko, Telegram @Mini_Exchange
             </p>
         </div>
+    </div>
+
+    <!-- Cache Status -->
+    <div class="cache-status online" id="cacheStatus">
+        📶 آنلاین - داده‌ها ذخیره شده
     </div>
 
     <script src="crypto-tracker-script.js"></script>
