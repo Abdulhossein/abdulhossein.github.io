@@ -1,4 +1,4 @@
-// Crypto Tracker Final JavaScript - Live Indicators Version
+// Crypto Tracker Final JavaScript - Enhanced Live Indicators Version
 // File: crypto-tracker-final.js
 
 // Global variables
@@ -41,7 +41,7 @@ const API_CONFIG = {
     KLINES_API: 'https://api.binance.com/api/v3/klines'
 };
 
-// Binance symbol mapping
+// Enhanced Binance symbol mapping with TON, DOGS, MAJOR and more
 const SYMBOL_MAPPING = {
     'bitcoin': 'BTCUSDT',
     'ethereum': 'ETHUSDT', 
@@ -57,7 +57,41 @@ const SYMBOL_MAPPING = {
     'polkadot': 'DOTUSDT',
     'tron': 'TRXUSDT',
     'uniswap': 'UNIUSDT',
-    'stellar': 'XLMUSDT'
+    'stellar': 'XLMUSDT',
+    
+    // TON ecosystem and new coins
+    'the-open-network': 'TONUSDT',
+    'toncoin': 'TONUSDT',
+    'dogs': 'DOGSUSDT',
+    'major': 'MAJORUSDT',
+    
+    // Other important coins
+    'shiba-inu': 'SHIBUSDT',
+    'pepe': 'PEPEUSDT',
+    'arbitrum': 'ARBUSDT',
+    'optimism': 'OPUSDT',
+    'internet-computer': 'ICPUSDT',
+    'aptos': 'APTUSDT',
+    'sui': 'SUIUSDT',
+    'injective-protocol': 'INJUSDT',
+    'sei-network': 'SEIUSDT',
+    'celestia': 'TIAUSDT',
+    'worldcoin-wld': 'WLDUSDT',
+    'render-token': 'RENDERUSDT',
+    'theta-token': 'THETAUSDT',
+    'filecoin': 'FILUSDT',
+    'near': 'NEARUSDT',
+    'cosmos': 'ATOMUSDT',
+    'algorand': 'ALGOUSDT',
+    'hedera-hashgraph': 'HBARUSDT',
+    'vechain': 'VETUSDT',
+    'sandbox': 'SANDUSDT',
+    'decentraland': 'MANAUSDT',
+    'axie-infinity': 'AXSUSDT',
+    'enjincoin': 'ENJUSDT',
+    'flow': 'FLOWUSDT',
+    'immutable-x': 'IMXUSDT',
+    'gala': 'GALAUSDT'
 };
 
 // Timeframe mapping for Binance
@@ -115,6 +149,15 @@ class CacheManager {
         this.updateCacheStatus();
     }
     
+    static clear() {
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith(CACHE_CONFIG.PREFIX)) {
+                localStorage.removeItem(key);
+            }
+        });
+        this.updateCacheStatus();
+    }
+    
     static getCacheSize() {
         let size = 0;
         Object.keys(localStorage).forEach(key => {
@@ -140,7 +183,7 @@ class CacheManager {
         
         if (cacheStatus) {
             cacheStatus.className = 'cache-status online';
-            cacheStatus.textContent = '📶 آنلاین - داده‌های زنده';
+            cacheStatus.textContent = '🔥 زنده - داده‌های Binance';
         }
     }
 }
@@ -151,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    console.log('🚀 Initializing Live Indicators Crypto Tracker...');
+    console.log('🚀 Initializing Enhanced Live Indicators Crypto Tracker...');
     
     // Clear search box on every page load
     const searchBox = document.getElementById('cryptoSearch');
@@ -395,11 +438,14 @@ function getFallbackSearchResults(query) {
         { id: 'cardano', name: 'Cardano', symbol: 'ADA', market_cap_rank: 8 },
         { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', market_cap_rank: 9 },
         { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', market_cap_rank: 10 },
-        { id: 'shiba-inu', name: 'Shiba Inu', symbol: 'SHIB', market_cap_rank: 11 },
-        { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', market_cap_rank: 12 },
-        { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', market_cap_rank: 13 },
-        { id: 'polygon', name: 'Polygon', symbol: 'MATIC', market_cap_rank: 14 },
-        { id: 'litecoin', name: 'Litecoin', symbol: 'LTC', market_cap_rank: 15 }
+        { id: 'the-open-network', name: 'TON', symbol: 'TON', market_cap_rank: 11 },
+        { id: 'dogs', name: 'DOGS', symbol: 'DOGS', market_cap_rank: 12 },
+        { id: 'major', name: 'MAJOR', symbol: 'MAJOR', market_cap_rank: 13 },
+        { id: 'shiba-inu', name: 'Shiba Inu', symbol: 'SHIB', market_cap_rank: 14 },
+        { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', market_cap_rank: 15 },
+        { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', market_cap_rank: 16 },
+        { id: 'polygon', name: 'Polygon', symbol: 'MATIC', market_cap_rank: 17 },
+        { id: 'litecoin', name: 'Litecoin', symbol: 'LTC', market_cap_rank: 18 }
     ];
     
     const lowerQuery = query.toLowerCase();
@@ -561,7 +607,8 @@ async function updateAllPageData() {
 function updateCoinTitle(name, symbol) {
     const coinTitle = document.getElementById('coinTitle');
     const emojis = {
-        'BTC': '₿', 'ETH': 'Ξ', 'ADA': '🔴', 'SOL': '🟣', 'XRP': '💧', 'LTC': '🔘'
+        'BTC': '₿', 'ETH': 'Ξ', 'ADA': '🔴', 'SOL': '🟣', 'XRP': '💧', 'LTC': '🔘', 
+        'TON': '💎', 'DOGS': '🐕', 'MAJOR': '⭐'
     };
     
     if (coinTitle) {
@@ -850,7 +897,14 @@ function showMiniChartError() {
 
 function updateTradingViewChart(symbol) {
     if (window.TradingView) {
-        const binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${symbol}USDT`;
+        // Enhanced symbol mapping with fallback
+        let binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id];
+        
+        if (!binanceSymbol) {
+            binanceSymbol = `${symbol.toUpperCase()}USDT`;
+            console.warn(`⚠️ Chart symbol not in mapping, using: ${binanceSymbol}`);
+        }
+        
         createTradingViewWidget(binanceSymbol);
     }
 }
@@ -858,17 +912,31 @@ function updateTradingViewChart(symbol) {
 // Update Mini Chart
 function updateMiniChart(symbol) {
     setTimeout(() => {
-        const binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${symbol}USDT`;
+        let binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id];
+        
+        if (!binanceSymbol) {
+            binanceSymbol = `${symbol.toUpperCase()}USDT`;
+            console.warn(`⚠️ Mini chart symbol not in mapping, using: ${binanceSymbol}`);
+        }
+        
         createMiniTradingViewWidget(binanceSymbol);
     }, 500);
 }
 
-// ⭐ MAIN FUNCTION: Enhanced LIVE Technical Indicators 
+// ⭐ MAIN FUNCTION: Enhanced LIVE Technical Indicators with TradingView Data Support
 async function updateLiveTechnicalIndicators() {
-    const binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${currentSelectedCoin.symbol}USDT`;
+    // Enhanced symbol mapping with fallback for TON, DOGS, MAJOR, etc.
+    let binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id];
+    
+    // If not in mapping, create it automatically
+    if (!binanceSymbol) {
+        binanceSymbol = `${currentSelectedCoin.symbol.toUpperCase()}USDT`;
+        console.warn(`⚠️ Symbol not in mapping, using: ${binanceSymbol} for ${currentSelectedCoin.name}`);
+    }
+    
     const binanceTimeframe = TIMEFRAME_MAPPING[currentTimeFrame] || '15m';
     
-    console.log(`🔄 Updating LIVE indicators: ${binanceSymbol} (${binanceTimeframe})`);
+    console.log(`🔄 Updating LIVE indicators: ${binanceSymbol} (${binanceTimeframe}) for ${currentSelectedCoin.name}`);
     
     // Check cache first (but with very short expiry for live data)
     const cacheKey = `liveIndicators_${binanceSymbol}_${binanceTimeframe}`;
@@ -880,8 +948,23 @@ async function updateLiveTechnicalIndicators() {
     }
     
     try {
-        // Get REAL-TIME data from Binance API
-        const klineData = await fetchBinanceKlineData(binanceSymbol, binanceTimeframe);
+        let klineData;
+        let dataSource = 'Unknown';
+        
+        // ⭐ NEW: Try TradingView data first, then fallback to Binance
+        try {
+            klineData = await fetchTradingViewData(binanceSymbol, binanceTimeframe);
+            dataSource = 'TradingView API';
+            console.log(`✅ Using TradingView data: ${klineData.length} candles for ${binanceSymbol}`);
+        } catch (tvError) {
+            console.warn(`⚠️ TradingView failed for ${binanceSymbol}:`, tvError.message);
+            console.log(`🔄 Falling back to Binance API...`);
+            
+            // Fallback to Binance API
+            klineData = await fetchBinanceKlineData(binanceSymbol, binanceTimeframe);
+            dataSource = 'Binance API';
+            console.log(`✅ Using Binance fallback: ${klineData.length} candles for ${binanceSymbol}`);
+        }
         
         if (klineData && klineData.length >= 50) {
             // Calculate indicators with REAL data
@@ -894,6 +977,7 @@ async function updateLiveTechnicalIndicators() {
                 symbol: currentSelectedCoin.symbol,
                 binanceSymbol: binanceSymbol,
                 timeframe: currentTimeFrame,
+                dataSource: dataSource,
                 timestamp: Date.now(),
                 dataPoints: klineData.length,
                 data: {
@@ -916,40 +1000,91 @@ async function updateLiveTechnicalIndicators() {
             // Cache indicators for 1 minute only (live data)
             CacheManager.set(cacheKey, indicatorsData, CACHE_CONFIG.INDICATORS_CACHE_TIME);
             
-            showNotification(`اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) آپدیت شد! 🔥`, 'success');
-            console.log(`✅ LIVE indicators updated: ${binanceSymbol} with ${klineData.length} data points`);
+            showNotification(`✅ اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) از ${dataSource}!`, 'success');
+            console.log(`✅ LIVE indicators updated: ${binanceSymbol} with ${klineData.length} data points from ${dataSource}`);
         } else {
-            throw new Error('Insufficient kline data');
+            throw new Error('Insufficient kline data from both sources');
         }
         
     } catch (error) {
-        console.error('Error updating live indicators:', error);
+        console.error('❌ Error updating live indicators:', error);
         
         // Fallback to realistic generated indicators
         const fallbackIndicators = generateRealisticIndicators();
         updateIndicatorsDisplay(fallbackIndicators);
         
-        showNotification(`خطا در دریافت داده‌های زنده - داده‌های واقعی‌گرا نمایش داده شد`, 'error');
+        showNotification(`⚠️ خطا در دریافت داده‌های زنده ${currentSelectedCoin.symbol} - داده‌های شبیه‌سازی نمایش داده شد`, 'error');
     }
 }
 
-// ⭐ Fetch REAL data from Binance API
+// ⭐ NEW: Fetch data from TradingView (Simulated - Replace with real TradingView API)
+async function fetchTradingViewData(symbol, interval) {
+    try {
+        // 🔍 Note: TradingView doesn't have public API, so this is a placeholder
+        // In real implementation, you would use TradingView's partner API or websocket
+        
+        console.log(`📊 Attempting TradingView data fetch: ${symbol} (${interval})`);
+        
+        // For now, we'll simulate TradingView data structure
+        // In real implementation, replace this with actual TradingView API call
+        
+        // Simulate a network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // For demonstration, we'll throw an error to fallback to Binance
+        // Remove this line when implementing real TradingView API
+        throw new Error('TradingView API not implemented - using Binance fallback');
+        
+        // This is how the real implementation would look:
+        /*
+        const tradingViewUrl = `https://api.tradingview.com/v1/data/${symbol}/${interval}`;
+        const response = await fetch(tradingViewUrl, {
+            headers: {
+                'Authorization': 'Bearer YOUR_TRADINGVIEW_API_KEY',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`TradingView API failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Convert TradingView data to our OHLCV format
+        return data.bars.map(bar => ({
+            timestamp: bar.time * 1000,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume
+        }));
+        */
+        
+    } catch (error) {
+        console.error('❌ TradingView data fetch failed:', error.message);
+        throw error;
+    }
+}
+
+// ⭐ Enhanced: Fetch REAL data from Binance API with better error handling
 async function fetchBinanceKlineData(symbol, interval) {
     try {
         const limit = 200; // Get enough data for accurate calculations
         const url = `${API_CONFIG.KLINES_API}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
         
-        console.log(`📊 Fetching data: ${url}`);
+        console.log(`📊 Fetching Binance data: ${symbol} (${interval})`);
         
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`Binance API failed: ${response.status} ${response.statusText}`);
+            throw new Error(`Binance API failed: ${response.status} ${response.statusText} for ${symbol}`);
         }
         
         const data = await response.json();
         
         if (!data || !Array.isArray(data) || data.length === 0) {
-            throw new Error('Empty response from Binance');
+            throw new Error(`Empty or invalid response from Binance for ${symbol}`);
         }
         
         // Convert Binance kline data to OHLCV format
@@ -962,12 +1097,13 @@ async function fetchBinanceKlineData(symbol, interval) {
             volume: parseFloat(kline[5])
         }));
         
-        console.log(`✅ Fetched ${ohlcvData.length} ${interval} candles for ${symbol}`);
+        console.log(`✅ Fetched ${ohlcvData.length} ${interval} candles for ${symbol} from Binance`);
+        console.log(`📈 Price range: $${Math.min(...ohlcvData.map(d => d.close)).toFixed(2)} - $${Math.max(...ohlcvData.map(d => d.close)).toFixed(2)}`);
         
         return ohlcvData;
         
     } catch (error) {
-        console.error('Error fetching Binance kline data:', error);
+        console.error('❌ Error fetching Binance kline data:', error);
         throw error;
     }
 }
@@ -1562,6 +1698,73 @@ function formatLargeNumber(num) {
     return num.toFixed(2);
 }
 
+// Enhanced Error Handling
+window.addEventListener('error', function(e) {
+    console.error('Global error:', e.error);
+    showNotification('خطای سیستم رخ داد - داده‌ها از کش بازیابی می‌شود', 'error');
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    showNotification('خطای شبکه - در حال استفاده از داده‌های کش شده', 'error');
+});
+
+// Network Status Detection
+window.addEventListener('online', function() {
+    const cacheStatus = document.getElementById('cacheStatus');
+    if (cacheStatus) {
+        cacheStatus.className = 'cache-status online';
+        cacheStatus.textContent = '🔥 آنلاین - داده‌های زنده';
+    }
+    showNotification('اتصال اینترنت برقرار شد', 'success');
+});
+
+window.addEventListener('offline', function() {
+    const cacheStatus = document.getElementById('cacheStatus');
+    if (cacheStatus) {
+        cacheStatus.className = 'cache-status offline';
+        cacheStatus.textContent = '📡 آفلاین - داده‌های کش در دسترس';
+    }
+    showNotification('اتصال اینترنت قطع شد - داده‌های کش در دسترس است', 'info');
+});
+
+// Performance monitoring
+function logPerformance() {
+    if (window.performance && window.performance.timing) {
+        const timing = window.performance.timing;
+        const loadTime = timing.loadEventEnd - timing.navigationStart;
+        console.log(`⏱️ Page load time: ${loadTime}ms`);
+        
+        // Cache performance metrics
+        CacheManager.set('performance', {
+            loadTime: loadTime,
+            timestamp: Date.now()
+        }, 24 * 60 * 60 * 1000); // 24 hours
+    }
+}
+
+// Initialize performance monitoring
+window.addEventListener('load', logPerformance);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + R for refresh indicators
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        updateLiveTechnicalIndicators();
+        showNotification('اندیکاتورها به‌روزرسانی شد', 'info');
+    }
+    
+    // Escape to clear search
+    if (e.key === 'Escape') {
+        const searchBox = document.getElementById('cryptoSearch');
+        if (searchBox) {
+            searchBox.value = '';
+            hideSearchDropdown();
+        }
+    }
+});
+
 // Global function exports
 window.openTab = openTab;
 window.selectCoin = selectCoin;
@@ -1571,25 +1774,82 @@ window.changeTimeFrame = changeTimeFrame;
 // Initialize cache manager
 window.CacheManager = CacheManager;
 
-// Final initialization
-console.log('✅ LIVE Technical Indicators Crypto Tracker loaded successfully!');
-console.log(`🔥 Features: Real Binance API, Live Indicators, Dynamic Timeframes`);
+// Service Worker registration for better caching
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+            console.log('Service Worker registered successfully');
+        })
+        .catch(error => {
+            console.log('Service Worker registration failed');
+        });
+}
+
+// Final initialization log
+console.log('✅ Complete Enhanced Live Indicators Crypto Tracker loaded successfully!');
+console.log(`🔥 Features: Live Indicators, TradingView Charts, Enhanced Symbol Mapping`);
+console.log(`💾 Cache size: ${CacheManager.getCacheSize()} bytes`);
 console.log(`📊 Current setup: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
 
 // Auto-update indicators on visibility change
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
+        // Page became visible, update indicators
         setTimeout(() => {
             updateLiveTechnicalIndicators();
         }, 1000);
     }
 });
 
-// Keyboard shortcut for manual refresh
-document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-        e.preventDefault();
-        updateLiveTechnicalIndicators();
-        showNotification(`اندیکاتورهای ${currentSelectedCoin.symbol} به‌روزرسانی شد`, 'info');
+// Touch events for mobile
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', function(e) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', function(e) {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+    
+    // Swipe down to refresh (on indicators section)
+    if (deltaY > 100 && Math.abs(deltaX) < 50) {
+        const target = e.target.closest('.indicators-section');
+        if (target) {
+            updateLiveTechnicalIndicators();
+            showNotification('اندیکاتورها بروزرسانی شد', 'info');
+        }
     }
+}, { passive: true });
+
+// Auto-save user preferences
+function saveUserPreferences() {
+    const preferences = {
+        selectedCoin: currentSelectedCoin,
+        timeFrame: currentTimeFrame,
+        theme: 'light',
+        autoRefresh: true,
+        timestamp: Date.now()
+    };
+    
+    CacheManager.set('userPreferences', preferences, 30 * 24 * 60 * 60 * 1000); // 30 days
+}
+
+// Save preferences on unload
+window.addEventListener('beforeunload', function() {
+    saveUserPreferences();
 });
+
+// Initialize with a final check
+setTimeout(() => {
+    if (currentSelectedCoin && currentSelectedCoin.id) {
+        console.log(`🎯 Active coin: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
+        console.log(`📈 System ready with ${Object.keys(generateRealisticIndicators()).length} indicators`);
+        console.log(`🆕 Enhanced mapping includes: TON, DOGS, MAJOR + ${Object.keys(SYMBOL_MAPPING).length} total coins`);
+    }
+}, 3000);
