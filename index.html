@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>رصد ارزهای دیجیتالی - نسخه پیشرفته</title>
+    <title>رصد ارزهای دیجیتالی - نسخه بهبود یافته</title>
     <style>
         * {
             margin: 0;
@@ -69,54 +69,93 @@
         
         .search-box {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             border: 2px solid #3498db;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
             text-align: center;
             transition: all 0.3s;
+            background: #f8f9fa;
         }
         
         .search-box:focus {
             border-color: #2980b9;
             outline: none;
-            box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+            background: white;
         }
         
-        .search-results {
+        .search-dropdown {
             position: absolute;
             top: 100%;
             left: 0;
             right: 0;
             background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            max-height: 200px;
+            border: 2px solid #3498db;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 300px;
             overflow-y: auto;
             z-index: 1000;
             display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
         
         .search-result-item {
-            padding: 10px;
+            padding: 15px;
             cursor: pointer;
-            border-bottom: 1px solid #eee;
-            transition: background 0.2s;
+            border-bottom: 1px solid #ecf0f1;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .search-result-item:hover {
-            background: #f8f9fa;
+            background: #e8f4f8;
+            transform: translateX(-3px);
         }
         
         .search-result-item:last-child {
             border-bottom: none;
         }
         
+        .search-result-info {
+            flex-grow: 1;
+        }
+        
+        .search-result-name {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        
+        .search-result-symbol {
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+        
+        .search-result-rank {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
         .search-loading {
             text-align: center;
-            padding: 10px;
+            padding: 20px;
             color: #7f8c8d;
+        }
+        
+        .search-error {
+            text-align: center;
+            padding: 20px;
+            color: #e74c3c;
+            background: #fdf2f2;
         }
         
         .search-suggestions {
@@ -177,9 +216,18 @@
         
         .widget-container {
             width: 100%;
-            min-height: 300px;
+            min-height: 500px; /* Increased height */
             border-radius: 8px;
             overflow: hidden;
+            background: #f8f9fa;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 600px; /* Fixed height for chart */
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
         }
         
         .loading {
@@ -205,6 +253,16 @@
             border-radius: 10px;
             text-align: center;
             transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .price-card.loading {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+        }
+        
+        .price-card.error {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
         }
         
         .price-card:hover {
@@ -221,6 +279,14 @@
         .price-card p {
             font-size: 16px;
             font-weight: bold;
+        }
+        
+        .price-change-positive {
+            color: #27ae60 !important;
+        }
+        
+        .price-change-negative {
+            color: #e74c3c !important;
         }
         
         .tabs {
@@ -408,13 +474,13 @@
         }
         
         .spinner {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3498db;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
         
         @keyframes spin {
@@ -441,7 +507,11 @@
             }
             
             .widget-container {
-                min-height: 250px;
+                min-height: 400px;
+            }
+            
+            .chart-container {
+                height: 450px;
             }
             
             .price-display {
@@ -489,7 +559,7 @@
             
             .search-box {
                 font-size: 14px;
-                padding: 10px;
+                padding: 12px;
             }
             
             .widget-title {
@@ -500,6 +570,10 @@
             .news-title {
                 font-size: 12px;
                 padding: 6px 12px;
+            }
+            
+            .chart-container {
+                height: 350px;
             }
         }
         
@@ -567,22 +641,33 @@
         .notification.info {
             background: #3498db;
         }
+        
+        .update-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 8px;
+            height: 8px;
+            background: #27ae60;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🚀 مرکز رصد ارزهای دیجیتالی - نسخه پیشرفته</h1>
+            <h1>🚀 مرکز رصد ارزهای دیجیتالی - نسخه بهبود یافته</h1>
             <p>تحلیل جامع بازار کریپتو + اخبار بلادرنگ <span class="status-indicator"></span></p>
         </div>
 
         <!-- Search Section -->
         <div class="search-section">
-            <h3>🔍 جستجوی هوشمند ارز</h3>
+            <h3>🔍 جستجوی هوشمند ارز (با دراپ داون زنده)</h3>
             <div class="search-container">
-                <input type="text" id="cryptoSearch" class="search-box" placeholder="نام ارز یا سمبل را تایپ کنید... (حداقل 3 حرف)">
-                <div id="searchResults" class="search-results"></div>
+                <input type="text" id="cryptoSearch" class="search-box" placeholder="نام ارز یا سمبل را تایپ کنید... (حداقل 2 حرف)" autocomplete="off">
+                <div id="searchDropdown" class="search-dropdown"></div>
             </div>
             <div class="search-suggestions">
                 <button class="coin-tag" onclick="selectCoin('bitcoin', 'BTC', 'Bitcoin')">Bitcoin (BTC) 🟠</button>
@@ -600,54 +685,39 @@
         <div class="info-section">
             <h3 id="coinTitle">📊 اطلاعات Bitcoin (BTC) <span class="crypto-icons">₿</span></h3>
             <div class="price-display">
-                <div class="price-card">
+                <div class="price-card loading" id="priceCard1">
                     <h4>💰 قیمت فعلی</h4>
                     <p id="currentPrice">در حال بارگذاری...</p>
+                    <div class="update-indicator" id="priceIndicator" style="display: none;"></div>
                 </div>
-                <div class="price-card">
+                <div class="price-card loading" id="priceCard2">
                     <h4>📈 تغییر 24 ساعت</h4>
                     <p id="change24h">در حال بارگذاری...</p>
+                    <div class="update-indicator" id="changeIndicator" style="display: none;"></div>
                 </div>
-                <div class="price-card">
+                <div class="price-card loading" id="priceCard3">
                     <h4>📊 حجم معاملات</h4>
                     <p id="volume24h">در حال بارگذاری...</p>
+                    <div class="update-indicator" id="volumeIndicator" style="display: none;"></div>
                 </div>
-                <div class="price-card">
+                <div class="price-card loading" id="priceCard4">
                     <h4>💎 ارزش بازار</h4>
                     <p id="marketCap">در حال بارگذاری...</p>
+                    <div class="update-indicator" id="capIndicator" style="display: none;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Chart Section -->
+        <!-- Chart Section with Improved Height -->
         <div class="widget-section">
-            <div class="widget-title">📈 نمودار قیمت تفصیلی و تحلیل تکنیکال</div>
-            <div class="widget-container">
+            <div class="widget-title">📈 نمودار قیمت تفصیلی و تحلیل تکنیکال (ارتفاع بهبود یافته)</div>
+            <div class="chart-container">
                 <!-- TradingView Advanced Chart -->
-                <div class="tradingview-widget-container">
-                    <div class="tradingview-widget-container__widget"></div>
-                    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-                    {
-                        "autosize": true,
-                        "symbol": "BINANCE:BTCUSDT",
-                        "interval": "D",
-                        "timezone": "Asia/Tehran",
-                        "theme": "light",
-                        "style": "1",
-                        "locale": "fa",
-                        "toolbar_bg": "#f1f3f6",
-                        "enable_publishing": false,
-                        "allow_symbol_change": true,
-                        "details": true,
-                        "hotlist": true,
-                        "calendar": true,
-                        "studies": [
-                            "RSI@tv-basicstudies",
-                            "MASimple@tv-basicstudies"
-                        ],
-                        "container_id": "tradingview_chart"
-                    }
-                    </script>
+                <div id="tradingview_chart" class="tradingview-widget-container" style="height: 100%; width: 100%;">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        در حال بارگذاری نمودار...
+                    </div>
                 </div>
             </div>
         </div>
@@ -889,15 +959,15 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                     <div style="text-align: center; padding: 15px; background: white; border-radius: 8px;">
                         <h5 style="color: #2c3e50; margin-bottom: 10px;">🏦 کل ارزش بازار</h5>
-                        <p style="font-size: 18px; font-weight: bold; color: #27ae60;" id="totalMarketCap">$2.45T</p>
+                        <p style="font-size: 18px; font-weight: bold; color: #27ae60;" id="totalMarketCap">در حال بارگذاری...</p>
                     </div>
                     <div style="text-align: center; padding: 15px; background: white; border-radius: 8px;">
                         <h5 style="color: #2c3e50; margin-bottom: 10px;">📊 حجم 24 ساعت</h5>
-                        <p style="font-size: 18px; font-weight: bold; color: #3498db;" id="total24hVolume">$87.2B</p>
+                        <p style="font-size: 18px; font-weight: bold; color: #3498db;" id="total24hVolume">در حال بارگذاری...</p>
                     </div>
                     <div style="text-align: center; padding: 15px; background: white; border-radius: 8px;">
                         <h5 style="color: #2c3e50; margin-bottom: 10px;">👑 تسلط بیت‌کوین</h5>
-                        <p style="font-size: 18px; font-weight: bold; color: #f39c12;" id="btcDominance">54.2%</p>
+                        <p style="font-size: 18px; font-weight: bold; color: #f39c12;" id="btcDominance">در حال بارگذاری...</p>
                     </div>
                 </div>
             </div>
@@ -905,7 +975,7 @@
 
         <!-- Footer -->
         <div class="footer">
-            <p>🔮 مرکز رصد ارزهای دیجیتالی | نسخه پیشرفته Mini App تلگرام</p>
+            <p>🔮 مرکز رصد ارزهای دیجیتالی | نسخه بهبود یافته Mini App تلگرام</p>
             <p>💡 تمام داده‌ها به صورت زنده از منابع معتبر دریافت می‌شوند</p>
             <p>🕐 آخرین به‌روزرسانی: <span id="lastUpdate"></span></p>
             <p style="font-size: 10px; margin-top: 10px; opacity: 0.8;">
@@ -914,6 +984,6 @@
         </div>
     </div>
 
-    <script src="crypto-tracker-script.js"></script>
+    <script src="crypto-tracker-improved.js"></script>
 </body>
 </html>
