@@ -1,4 +1,4 @@
-// Crypto Tracker Final JavaScript - Complete Version
+// Crypto Tracker Final JavaScript - Live Indicators Version
 // File: crypto-tracker-final.js
 
 // Global variables
@@ -15,8 +15,8 @@ let priceHistoryData = [];
 const CACHE_CONFIG = {
     PREFIX: 'cryptoTracker_',
     EXPIRY_TIME: 24 * 60 * 60 * 1000, // 24 hours
-    MAX_PRICE_HISTORY: 50,
-    INDICATORS_CACHE_TIME: 2 * 60 * 1000, // 2 minutes for live data
+    MAX_PRICE_HISTORY: 200,
+    INDICATORS_CACHE_TIME: 60 * 1000, // 1 minute for live data
     USER_SETTINGS_KEYS: [
         'selectedCoin',
         'activeTab', 
@@ -36,9 +36,39 @@ const API_CONFIG = {
     GLOBAL_API: 'https://api.coingecko.com/api/v3/global',
     CORS_PROXY: 'https://api.allorigins.win/get?url=',
     
-    // Technical Indicators API (using real-time data)
+    // Binance API for real-time technical indicators
     BINANCE_API: 'https://api.binance.com/api/v3',
     KLINES_API: 'https://api.binance.com/api/v3/klines'
+};
+
+// Binance symbol mapping
+const SYMBOL_MAPPING = {
+    'bitcoin': 'BTCUSDT',
+    'ethereum': 'ETHUSDT', 
+    'cardano': 'ADAUSDT',
+    'solana': 'SOLUSDT',
+    'ripple': 'XRPUSDT',
+    'litecoin': 'LTCUSDT',
+    'binancecoin': 'BNBUSDT',
+    'dogecoin': 'DOGEUSDT',
+    'avalanche-2': 'AVAXUSDT',
+    'polygon': 'MATICUSDT',
+    'chainlink': 'LINKUSDT',
+    'polkadot': 'DOTUSDT',
+    'tron': 'TRXUSDT',
+    'uniswap': 'UNIUSDT',
+    'stellar': 'XLMUSDT'
+};
+
+// Timeframe mapping for Binance
+const TIMEFRAME_MAPPING = {
+    '1m': '1m',
+    '5m': '5m', 
+    '15m': '15m',
+    '1h': '1h',
+    '4h': '4h',
+    '1d': '1d',
+    '1w': '1w'
 };
 
 // Cache Management System
@@ -85,15 +115,6 @@ class CacheManager {
         this.updateCacheStatus();
     }
     
-    static clear() {
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith(CACHE_CONFIG.PREFIX)) {
-                localStorage.removeItem(key);
-            }
-        });
-        this.updateCacheStatus();
-    }
-    
     static getCacheSize() {
         let size = 0;
         Object.keys(localStorage).forEach(key => {
@@ -119,7 +140,7 @@ class CacheManager {
         
         if (cacheStatus) {
             cacheStatus.className = 'cache-status online';
-            cacheStatus.textContent = '📶 آنلاین - داده‌ها ذخیره شده';
+            cacheStatus.textContent = '📶 آنلاین - داده‌های زنده';
         }
     }
 }
@@ -130,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    console.log('🚀 Initializing Final Crypto Tracker...');
+    console.log('🚀 Initializing Live Indicators Crypto Tracker...');
     
     // Clear search box on every page load
     const searchBox = document.getElementById('cryptoSearch');
@@ -150,7 +171,7 @@ function initializeApp() {
     loadCoinData(currentSelectedCoin.id);
     loadGlobalMarketData();
     
-    // Initialize indicators with live data
+    // Initialize indicators with LIVE data for current coin and timeframe
     updateLiveTechnicalIndicators();
     
     // Update other components
@@ -170,7 +191,7 @@ function initializeApp() {
     
     // Show welcome message
     setTimeout(() => {
-        showNotification('سیستم با اندیکاتورهای زنده آماده است! 📊', 'success');
+        showNotification(`اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) آماده است! 📊`, 'success');
     }, 1500);
 }
 
@@ -206,6 +227,7 @@ function loadFromCache() {
     if (cachedCoin) {
         currentSelectedCoin = cachedCoin;
         updateCoinTitle(cachedCoin.name, cachedCoin.symbol);
+        updateCurrentIndicatorCoin(cachedCoin.symbol);
         
         // Update active coin button
         document.querySelectorAll('.coin-tag').forEach(tag => {
@@ -241,13 +263,7 @@ function loadFromCache() {
         }, 100);
     }
     
-    // Restore chart settings
-    const chartSettings = CacheManager.get('chartSettings');
-    if (chartSettings) {
-        console.log('Chart settings restored from cache');
-    }
-    
-    console.log('✅ Cache data loaded successfully (search box kept empty)');
+    console.log(`✅ Cache loaded: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
 }
 
 // Enhanced Search functionality
@@ -375,7 +391,7 @@ function getFallbackSearchResults(query) {
         { id: 'binancecoin', name: 'BNB', symbol: 'BNB', market_cap_rank: 4 },
         { id: 'solana', name: 'Solana', symbol: 'SOL', market_cap_rank: 5 },
         { id: 'usd-coin', name: 'USDC', symbol: 'USDC', market_cap_rank: 6 },
-        { id: 'xrp', name: 'XRP', symbol: 'XRP', market_cap_rank: 7 },
+        { id: 'ripple', name: 'XRP', symbol: 'XRP', market_cap_rank: 7 },
         { id: 'cardano', name: 'Cardano', symbol: 'ADA', market_cap_rank: 8 },
         { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', market_cap_rank: 9 },
         { id: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', market_cap_rank: 10 },
@@ -430,14 +446,14 @@ function selectSearchResult(coinId, symbol, name) {
     document.getElementById('cryptoSearch').value = `${name} (${symbol})`;
     hideSearchDropdown();
     selectCoin(coinId, symbol, name);
-    showNotification(`ارز ${symbol} انتخاب و ذخیره شد`, 'success');
+    showNotification(`ارز ${symbol} انتخاب شد - اندیکاتورها در حال بروزرسانی`, 'success');
 }
 
 function hideSearchDropdown() {
     document.getElementById('searchDropdown').style.display = 'none';
 }
 
-// Enhanced coin selection with caching
+// Enhanced coin selection with LIVE indicators update
 async function selectCoin(coinId, symbol, name) {
     currentSelectedCoin = { id: coinId, symbol: symbol, name: name };
     
@@ -458,7 +474,7 @@ async function selectCoin(coinId, symbol, name) {
     
     await Promise.all([
         loadCoinData(coinId),
-        updateLiveTechnicalIndicators()
+        updateLiveTechnicalIndicators() // This will now use the NEW selected coin
     ]);
     
     // Update both main and mini charts
@@ -468,7 +484,7 @@ async function selectCoin(coinId, symbol, name) {
     await updateAllPageData();
     
     hidePageUpdateLoading();
-    showNotification(`اندیکاتورهای ${symbol} به‌روزرسانی شد! ✅`, 'success');
+    showNotification(`اندیکاتورهای زنده ${symbol} (${currentTimeFrame}) آماده است! ✅`, 'success');
 }
 
 function updateCurrentIndicatorCoin(symbol) {
@@ -478,8 +494,9 @@ function updateCurrentIndicatorCoin(symbol) {
     }
 }
 
-// TimeFrame Selection
+// TimeFrame Selection - Will update indicators for current coin with new timeframe
 function changeTimeFrame(timeframe) {
+    const oldTimeFrame = currentTimeFrame;
     currentTimeFrame = timeframe;
     
     // Cache timeframe
@@ -493,10 +510,26 @@ function changeTimeFrame(timeframe) {
         }
     });
     
-    // Update indicators with new timeframe
+    // Update indicators with new timeframe for CURRENT coin
+    showIndicatorsLoading();
     updateLiveTechnicalIndicators();
     
-    showNotification(`تایم فریم به ${timeframe} تغییر کرد`, 'info');
+    showNotification(`تایم فریم ${currentSelectedCoin.symbol} به ${timeframe} تغییر کرد`, 'info');
+    
+    // Update chart timeframe
+    if (window.TradingView && tradingViewChart) {
+        updateTradingViewChart(currentSelectedCoin.symbol);
+    }
+}
+
+function showIndicatorsLoading() {
+    // Show updating animation for all indicators
+    const indicatorCards = document.querySelectorAll('.indicator-card');
+    indicatorCards.forEach(card => {
+        card.classList.add('updating');
+        const valueEl = card.querySelector('[id*="Value"]');
+        if (valueEl) valueEl.textContent = 'بارگذاری...';
+    });
 }
 
 function showPageUpdateLoading() {
@@ -539,15 +572,6 @@ function updateCoinTitle(name, symbol) {
 // Enhanced coin data loading with caching
 async function loadCoinData(coinId) {
     try {
-        // Check cache first
-        const cacheKey = `coinData_${coinId}`;
-        let cachedData = CacheManager.get(cacheKey);
-        
-        if (cachedData) {
-            updatePriceDisplay(cachedData);
-            showNotification('قیمت‌ها از کش بازیابی شد', 'cache');
-        }
-        
         showLoadingInPriceCards();
         
         let response;
@@ -565,12 +589,6 @@ async function loadCoinData(coinId) {
         
         if (coinData && coinData.market_data) {
             updatePriceDisplay(coinData);
-            
-            // Cache the data
-            CacheManager.set(cacheKey, coinData, 5 * 60 * 1000); // 5 minutes
-            
-            // Store price for calculations
-            storePriceHistory(coinData.market_data.current_price.usd);
         } else {
             await loadBasicPriceData(coinId);
         }
@@ -582,33 +600,13 @@ async function loadCoinData(coinId) {
     }
 }
 
-function storePriceHistory(price) {
-    priceHistoryData.push({
-        price: price,
-        timestamp: Date.now()
-    });
-    
-    // Keep only recent history
-    if (priceHistoryData.length > CACHE_CONFIG.MAX_PRICE_HISTORY) {
-        priceHistoryData = priceHistoryData.slice(-CACHE_CONFIG.MAX_PRICE_HISTORY);
-    }
-    
-    // Cache price history
-    CacheManager.set('priceHistory', priceHistoryData);
-}
-
 async function loadBasicPriceData(coinId) {
     try {
         const response = await fetch(`${API_CONFIG.COINGECKO_BASE}/simple/price?ids=${coinId}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true`);
         if (response.ok) {
             const data = await response.json();
             const priceData = data[coinId];
-            if (priceData) {
-                updateBasicPriceDisplay(priceData);
-                
-                // Cache basic data
-                CacheManager.set(`basicPrice_${coinId}`, priceData, 2 * 60 * 1000); // 2 minutes
-            }
+            if (priceData) updateBasicPriceDisplay(priceData);
         }
     } catch (error) {
         console.error('Basic price data failed:', error);
@@ -616,22 +614,11 @@ async function loadBasicPriceData(coinId) {
 }
 
 function updateBasicPriceDisplay(priceData) {
-    const priceDataForCache = {
-        coinId: currentSelectedCoin.id,
-        currentPrice: `$${formatNumber(priceData.usd)}`,
-        change24h: `${priceData.usd_24h_change >= 0 ? '+' : ''}${priceData.usd_24h_change.toFixed(2)}%`,
-        volume24h: `$${formatLargeNumber(priceData.usd_24h_vol)}`,
-        marketCap: `$${formatLargeNumber(priceData.usd_market_cap)}`
-    };
-    
-    // Cache price data
-    CacheManager.set('priceData', priceDataForCache, 5 * 60 * 1000);
-    
     const updates = [
-        { id: 'currentPrice', value: priceDataForCache.currentPrice, card: 'priceCard1' },
-        { id: 'change24h', value: priceDataForCache.change24h, card: 'priceCard2' },
-        { id: 'volume24h', value: priceDataForCache.volume24h, card: 'priceCard3' },
-        { id: 'marketCap', value: priceDataForCache.marketCap, card: 'priceCard4' }
+        { id: 'currentPrice', value: `$${formatNumber(priceData.usd)}`, card: 'priceCard1' },
+        { id: 'change24h', value: `${priceData.usd_24h_change >= 0 ? '+' : ''}${priceData.usd_24h_change.toFixed(2)}%`, card: 'priceCard2' },
+        { id: 'volume24h', value: `$${formatLargeNumber(priceData.usd_24h_vol)}`, card: 'priceCard3' },
+        { id: 'marketCap', value: `$${formatLargeNumber(priceData.usd_market_cap)}`, card: 'priceCard4' }
     ];
     
     updates.forEach(update => {
@@ -680,22 +667,11 @@ function updatePriceDisplay(coinData) {
         return;
     }
     
-    const priceDataForCache = {
-        coinId: currentSelectedCoin.id,
-        currentPrice: `$${formatNumber(marketData.current_price.usd)}`,
-        change24h: `${marketData.price_change_percentage_24h >= 0 ? '+' : ''}${marketData.price_change_percentage_24h.toFixed(2)}%`,
-        volume24h: `$${formatLargeNumber(marketData.total_volume.usd)}`,
-        marketCap: `$${formatLargeNumber(marketData.market_cap.usd)}`
-    };
-    
-    // Cache price data
-    CacheManager.set('priceData', priceDataForCache, 5 * 60 * 1000);
-    
     const updates = [
-        { id: 'currentPrice', value: priceDataForCache.currentPrice, card: 'priceCard1' },
-        { id: 'change24h', value: priceDataForCache.change24h, card: 'priceCard2' },
-        { id: 'volume24h', value: priceDataForCache.volume24h, card: 'priceCard3' },
-        { id: 'marketCap', value: priceDataForCache.marketCap, card: 'priceCard4' }
+        { id: 'currentPrice', value: `$${formatNumber(marketData.current_price.usd)}`, card: 'priceCard1' },
+        { id: 'change24h', value: `${marketData.price_change_percentage_24h >= 0 ? '+' : ''}${marketData.price_change_percentage_24h.toFixed(2)}%`, card: 'priceCard2' },
+        { id: 'volume24h', value: `$${formatLargeNumber(marketData.total_volume.usd)}`, card: 'priceCard3' },
+        { id: 'marketCap', value: `$${formatLargeNumber(marketData.market_cap.usd)}`, card: 'priceCard4' }
     ];
     
     updates.forEach(update => {
@@ -764,7 +740,7 @@ function createTradingViewWidget(symbol) {
         const chartSettings = {
             autosize: true,
             symbol: `BINANCE:${symbol}`,
-            interval: currentTimeFrame === '1d' ? 'D' : currentTimeFrame,
+            interval: currentTimeFrame === '1d' ? 'D' : (currentTimeFrame === '1w' ? 'W' : currentTimeFrame),
             timezone: "Asia/Tehran",
             theme: "light",
             style: "1",
@@ -811,7 +787,6 @@ function createMiniTradingViewWidget(symbol) {
     container.innerHTML = '';
     
     try {
-        // Create the mini widget using TradingView's mini-symbol-overview
         const widgetScript = document.createElement('script');
         widgetScript.type = 'text/javascript';
         widgetScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
@@ -875,42 +850,52 @@ function showMiniChartError() {
 
 function updateTradingViewChart(symbol) {
     if (window.TradingView) {
-        createTradingViewWidget(`${symbol}USDT`);
+        const binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${symbol}USDT`;
+        createTradingViewWidget(binanceSymbol);
     }
 }
 
 // Update Mini Chart
 function updateMiniChart(symbol) {
     setTimeout(() => {
-        createMiniTradingViewWidget(`${symbol}USDT`);
+        const binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${symbol}USDT`;
+        createMiniTradingViewWidget(binanceSymbol);
     }, 500);
 }
 
-// Enhanced Live Technical Indicators
+// ⭐ MAIN FUNCTION: Enhanced LIVE Technical Indicators 
 async function updateLiveTechnicalIndicators() {
-    // Check cache first
-    const cacheKey = `indicators_${currentSelectedCoin.symbol}_${currentTimeFrame}`;
+    const binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${currentSelectedCoin.symbol}USDT`;
+    const binanceTimeframe = TIMEFRAME_MAPPING[currentTimeFrame] || '15m';
+    
+    console.log(`🔄 Updating LIVE indicators: ${binanceSymbol} (${binanceTimeframe})`);
+    
+    // Check cache first (but with very short expiry for live data)
+    const cacheKey = `liveIndicators_${binanceSymbol}_${binanceTimeframe}`;
     let cachedIndicators = CacheManager.get(cacheKey);
     
     if (cachedIndicators) {
-        updateIndicatorsFromCache(cachedIndicators);
+        updateIndicatorsDisplay(cachedIndicators.data);
+        showNotification(`اندیکاتورهای ${currentSelectedCoin.symbol} از کش بازیابی شد`, 'cache');
     }
     
     try {
-        // Get real-time data from Binance API
-        const symbol = `${currentSelectedCoin.symbol}USDT`;
-        const klineData = await fetchKlineData(symbol, currentTimeFrame);
+        // Get REAL-TIME data from Binance API
+        const klineData = await fetchBinanceKlineData(binanceSymbol, binanceTimeframe);
         
-        if (klineData && klineData.length > 0) {
-            const indicators = calculateLiveIndicators(klineData);
+        if (klineData && klineData.length >= 50) {
+            // Calculate indicators with REAL data
+            const indicators = calculatePreciseIndicators(klineData);
             const now = new Date();
             const currentTime = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
             
             const indicatorsData = {
                 coinId: currentSelectedCoin.id,
                 symbol: currentSelectedCoin.symbol,
+                binanceSymbol: binanceSymbol,
                 timeframe: currentTimeFrame,
                 timestamp: Date.now(),
+                dataPoints: klineData.length,
                 data: {
                     rsi: { ...indicators.rsi, time: currentTime },
                     macd: { ...indicators.macd, time: currentTime },
@@ -925,51 +910,50 @@ async function updateLiveTechnicalIndicators() {
                 }
             };
             
-            // Update display
+            // Update display with REAL data
             updateIndicatorsDisplay(indicatorsData.data);
             
-            // Cache indicators
+            // Cache indicators for 1 minute only (live data)
             CacheManager.set(cacheKey, indicatorsData, CACHE_CONFIG.INDICATORS_CACHE_TIME);
             
-            console.log(`✅ Live indicators updated: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
+            showNotification(`اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) آپدیت شد! 🔥`, 'success');
+            console.log(`✅ LIVE indicators updated: ${binanceSymbol} with ${klineData.length} data points`);
         } else {
-            // Fallback to generated indicators
-            const fallbackIndicators = generateRealisticIndicators();
-            updateIndicatorsDisplay(fallbackIndicators);
+            throw new Error('Insufficient kline data');
         }
         
     } catch (error) {
         console.error('Error updating live indicators:', error);
         
-        // Fallback to generated indicators
+        // Fallback to realistic generated indicators
         const fallbackIndicators = generateRealisticIndicators();
         updateIndicatorsDisplay(fallbackIndicators);
+        
+        showNotification(`خطا در دریافت داده‌های زنده - داده‌های واقعی‌گرا نمایش داده شد`, 'error');
     }
 }
 
-async function fetchKlineData(symbol, interval) {
+// ⭐ Fetch REAL data from Binance API
+async function fetchBinanceKlineData(symbol, interval) {
     try {
-        // Convert our timeframe to Binance format
-        const binanceInterval = {
-            '1m': '1m',
-            '5m': '5m', 
-            '15m': '15m',
-            '1h': '1h',
-            '4h': '4h',
-            '1d': '1d',
-            '1w': '1w'
-        }[interval] || '15m';
+        const limit = 200; // Get enough data for accurate calculations
+        const url = `${API_CONFIG.KLINES_API}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
         
-        const limit = 200; // Get enough data for calculations
-        const url = `${API_CONFIG.KLINES_API}?symbol=${symbol}&interval=${binanceInterval}&limit=${limit}`;
+        console.log(`📊 Fetching data: ${url}`);
         
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Binance API failed');
+        if (!response.ok) {
+            throw new Error(`Binance API failed: ${response.status} ${response.statusText}`);
+        }
         
         const data = await response.json();
         
+        if (!data || !Array.isArray(data) || data.length === 0) {
+            throw new Error('Empty response from Binance');
+        }
+        
         // Convert Binance kline data to OHLCV format
-        return data.map(kline => ({
+        const ohlcvData = data.map(kline => ({
             timestamp: kline[0],
             open: parseFloat(kline[1]),
             high: parseFloat(kline[2]),
@@ -978,99 +962,138 @@ async function fetchKlineData(symbol, interval) {
             volume: parseFloat(kline[5])
         }));
         
+        console.log(`✅ Fetched ${ohlcvData.length} ${interval} candles for ${symbol}`);
+        
+        return ohlcvData;
+        
     } catch (error) {
-        console.error('Error fetching kline data:', error);
-        return null;
+        console.error('Error fetching Binance kline data:', error);
+        throw error;
     }
 }
 
-function calculateLiveIndicators(klineData) {
-    const closes = klineData.map(k => k.close);
-    const highs = klineData.map(k => k.high);
-    const lows = klineData.map(k => k.low);
-    const volumes = klineData.map(k => k.volume);
+// ⭐ Calculate PRECISE indicators with real market data
+function calculatePreciseIndicators(ohlcvData) {
+    const closes = ohlcvData.map(d => d.close);
+    const highs = ohlcvData.map(d => d.high);
+    const lows = ohlcvData.map(d => d.low);
+    const opens = ohlcvData.map(d => d.open);
+    const volumes = ohlcvData.map(d => d.volume);
+    
+    console.log(`🧮 Calculating indicators with ${closes.length} data points`);
+    console.log(`📈 Price range: $${Math.min(...closes).toFixed(2)} - $${Math.max(...closes).toFixed(2)}`);
     
     return {
-        rsi: {
-            value: calculateRSI(closes, 14).toFixed(1),
-            status: getRSIStatus(calculateRSI(closes, 14))
-        },
-        macd: {
-            value: calculateMACD(closes),
-            status: getMACDStatus(closes)
-        },
-        sma: {
-            value: '$' + calculateSMA(closes, 20).toFixed(2),
-            status: getSMAStatus(closes, 20)
-        },
-        ema: {
-            value: '$' + calculateEMA(closes, 12).toFixed(2),
-            status: getEMAStatus(closes, 12)
-        },
-        stoch: {
-            value: calculateStochastic(highs, lows, closes, 14).toFixed(1),
-            status: getStochasticStatus(calculateStochastic(highs, lows, closes, 14))
-        },
-        willR: {
-            value: calculateWilliamsR(highs, lows, closes, 14).toFixed(1),
-            status: getWilliamsRStatus(calculateWilliamsR(highs, lows, closes, 14))
-        },
-        boll: {
-            value: calculateBollingerPosition(closes, 20),
-            status: getBollingerStatus(closes, 20)
-        },
-        atr: {
-            value: calculateATR(highs, lows, closes, 14).toFixed(4),
-            status: getATRStatus(highs, lows, closes, 14)
-        },
-        cci: {
-            value: calculateCCI(highs, lows, closes, 20).toFixed(1),
-            status: getCCIStatus(calculateCCI(highs, lows, closes, 20))
-        },
-        adx: {
-            value: calculateADX(highs, lows, closes, 14).toFixed(1),
-            status: getADXStatus(calculateADX(highs, lows, closes, 14))
-        }
+        rsi: calculatePreciseRSI(closes, 14),
+        macd: calculatePreciseMACD(closes),
+        sma: calculatePreciseSMA(closes, 20),
+        ema: calculatePreciseEMA(closes, 12),
+        stoch: calculatePreciseStochastic(highs, lows, closes, 14),
+        willR: calculatePreciseWilliamsR(highs, lows, closes, 14),
+        boll: calculatePreciseBollinger(closes, 20),
+        atr: calculatePreciseATR(highs, lows, closes, 14),
+        cci: calculatePreciseCCI(highs, lows, closes, 20),
+        adx: calculatePreciseADX(highs, lows, closes, 14)
     };
 }
 
-// Technical Indicator Calculations
-function calculateRSI(closes, period) {
-    if (closes.length < period + 1) return 50;
-    
-    let gains = 0;
-    let losses = 0;
-    
-    for (let i = 1; i <= period; i++) {
-        const change = closes[closes.length - i] - closes[closes.length - i - 1];
-        if (change > 0) {
-            gains += change;
-        } else {
-            losses += Math.abs(change);
-        }
+// ⭐ PRECISE Technical Indicator Calculations
+function calculatePreciseRSI(closes, period = 14) {
+    if (closes.length < period + 1) {
+        return { value: '50.0', status: 'داده ناکافی' };
     }
     
-    const avgGain = gains / period;
-    const avgLoss = losses / period;
+    let gains = [];
+    let losses = [];
     
-    if (avgLoss === 0) return 100;
+    // Calculate price changes
+    for (let i = 1; i < closes.length; i++) {
+        const change = closes[i] - closes[i - 1];
+        gains.push(change > 0 ? change : 0);
+        losses.push(change < 0 ? Math.abs(change) : 0);
+    }
+    
+    // Calculate average gains and losses
+    let avgGain = gains.slice(0, period).reduce((sum, gain) => sum + gain, 0) / period;
+    let avgLoss = losses.slice(0, period).reduce((sum, loss) => sum + loss, 0) / period;
+    
+    // Apply Wilder's smoothing
+    for (let i = period; i < gains.length; i++) {
+        avgGain = ((avgGain * (period - 1)) + gains[i]) / period;
+        avgLoss = ((avgLoss * (period - 1)) + losses[i]) / period;
+    }
+    
+    if (avgLoss === 0) {
+        return { value: '100.0', status: 'خرید شده' };
+    }
     
     const rs = avgGain / avgLoss;
-    return 100 - (100 / (1 + rs));
-}
-
-function calculateSMA(closes, period) {
-    if (closes.length < period) return closes[closes.length - 1];
+    const rsi = 100 - (100 / (1 + rs));
     
-    const recent = closes.slice(-period);
-    return recent.reduce((sum, price) => sum + price, 0) / period;
+    return {
+        value: rsi.toFixed(1),
+        status: getRSIStatus(rsi)
+    };
 }
 
-function calculateEMA(closes, period) {
-    if (closes.length < period) return closes[closes.length - 1];
+function calculatePreciseMACD(closes) {
+    if (closes.length < 26) {
+        return { value: '0.00', status: 'داده ناکافی' };
+    }
+    
+    const ema12 = calculatePreciseEMAValue(closes, 12);
+    const ema26 = calculatePreciseEMAValue(closes, 26);
+    const macdLine = ema12 - ema26;
+    
+    // Calculate signal line (9-period EMA of MACD line)
+    const macdValues = [];
+    for (let i = 25; i < closes.length; i++) {
+        const ema12_i = calculatePreciseEMAValue(closes.slice(0, i + 1), 12);
+        const ema26_i = calculatePreciseEMAValue(closes.slice(0, i + 1), 26);
+        macdValues.push(ema12_i - ema26_i);
+    }
+    
+    const signalLine = calculatePreciseEMAValue(macdValues, 9);
+    const histogram = macdLine - signalLine;
+    
+    return {
+        value: (macdLine >= 0 ? '+' : '') + macdLine.toFixed(2),
+        status: histogram > 0 ? 'صعودی' : 'نزولی'
+    };
+}
+
+function calculatePreciseSMA(closes, period) {
+    if (closes.length < period) {
+        return { value: `$${closes[closes.length - 1].toFixed(2)}`, status: 'داده ناکافی' };
+    }
+    
+    const recentCloses = closes.slice(-period);
+    const sma = recentCloses.reduce((sum, price) => sum + price, 0) / period;
+    const currentPrice = closes[closes.length - 1];
+    
+    return {
+        value: `$${sma.toFixed(2)}`,
+        status: currentPrice > sma ? 'بالای میانگین' : 'زیر میانگین'
+    };
+}
+
+function calculatePreciseEMA(closes, period) {
+    const ema = calculatePreciseEMAValue(closes, period);
+    const currentPrice = closes[closes.length - 1];
+    
+    return {
+        value: `$${ema.toFixed(2)}`,
+        status: currentPrice > ema ? 'روند صعودی' : 'روند نزولی'
+    };
+}
+
+function calculatePreciseEMAValue(closes, period) {
+    if (closes.length < period) {
+        return closes[closes.length - 1];
+    }
     
     const multiplier = 2 / (period + 1);
-    let ema = calculateSMA(closes.slice(0, period), period);
+    let ema = closes.slice(0, period).reduce((sum, price) => sum + price, 0) / period;
     
     for (let i = period; i < closes.length; i++) {
         ema = (closes[i] * multiplier) + (ema * (1 - multiplier));
@@ -1079,16 +1102,10 @@ function calculateEMA(closes, period) {
     return ema;
 }
 
-function calculateMACD(closes) {
-    const ema12 = calculateEMA(closes, 12);
-    const ema26 = calculateEMA(closes, 26);
-    const macd = ema12 - ema26;
-    
-    return (macd >= 0 ? '+' : '') + macd.toFixed(2);
-}
-
-function calculateStochastic(highs, lows, closes, period) {
-    if (highs.length < period) return 50;
+function calculatePreciseStochastic(highs, lows, closes, period = 14) {
+    if (highs.length < period) {
+        return { value: '50.0', status: 'داده ناکافی' };
+    }
     
     const recentHighs = highs.slice(-period);
     const recentLows = lows.slice(-period);
@@ -1097,37 +1114,63 @@ function calculateStochastic(highs, lows, closes, period) {
     const highestHigh = Math.max(...recentHighs);
     const lowestLow = Math.min(...recentLows);
     
-    if (highestHigh === lowestLow) return 50;
+    if (highestHigh === lowestLow) {
+        return { value: '50.0', status: 'خنثی' };
+    }
     
-    return ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+    const stochK = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+    
+    return {
+        value: stochK.toFixed(1),
+        status: getStochasticStatus(stochK)
+    };
 }
 
-function calculateWilliamsR(highs, lows, closes, period) {
-    const stoch = calculateStochastic(highs, lows, closes, period);
-    return stoch - 100;
+function calculatePreciseWilliamsR(highs, lows, closes, period = 14) {
+    const stoch = calculatePreciseStochastic(highs, lows, closes, period);
+    const willR = parseFloat(stoch.value) - 100;
+    
+    return {
+        value: willR.toFixed(1),
+        status: getWilliamsRStatus(willR)
+    };
 }
 
-function calculateBollingerPosition(closes, period) {
-    const sma = calculateSMA(closes, period);
-    const stdDev = calculateStdDev(closes.slice(-period));
+function calculatePreciseBollinger(closes, period = 20) {
+    if (closes.length < period) {
+        return { value: 'درون نوارها', status: 'داده ناکافی' };
+    }
+    
+    const recentCloses = closes.slice(-period);
+    const sma = recentCloses.reduce((sum, price) => sum + price, 0) / period;
+    
+    // Calculate standard deviation
+    const squaredDiffs = recentCloses.map(price => Math.pow(price - sma, 2));
+    const variance = squaredDiffs.reduce((sum, diff) => sum + diff, 0) / period;
+    const stdDev = Math.sqrt(variance);
+    
     const upperBand = sma + (2 * stdDev);
     const lowerBand = sma - (2 * stdDev);
     const currentPrice = closes[closes.length - 1];
     
-    if (currentPrice > upperBand) return 'بالای نوار بالا';
-    if (currentPrice < lowerBand) return 'زیر نوار پایین';
-    return 'درون نوارها';
+    let position = 'درون نوارها';
+    let status = 'خنثی';
+    
+    if (currentPrice > upperBand) {
+        position = 'بالای نوار بالا';
+        status = 'خرید شده';
+    } else if (currentPrice < lowerBand) {
+        position = 'زیر نوار پایین';
+        status = 'فروش شده';
+    }
+    
+    return { value: position, status: status };
 }
 
-function calculateStdDev(values) {
-    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
-    const avgSquaredDiff = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
-    return Math.sqrt(avgSquaredDiff);
-}
-
-function calculateATR(highs, lows, closes, period) {
-    if (highs.length < period + 1) return 0;
+function calculatePreciseATR(highs, lows, closes, period = 14) {
+    if (highs.length < period + 1) {
+        return { value: '0.0000', status: 'داده ناکافی' };
+    }
     
     const trueRanges = [];
     for (let i = 1; i < highs.length; i++) {
@@ -1137,12 +1180,26 @@ function calculateATR(highs, lows, closes, period) {
         trueRanges.push(Math.max(tr1, tr2, tr3));
     }
     
-    const recentTR = trueRanges.slice(-period);
-    return recentTR.reduce((sum, tr) => sum + tr, 0) / period;
+    // Calculate ATR using Wilder's smoothing
+    let atr = trueRanges.slice(0, period).reduce((sum, tr) => sum + tr, 0) / period;
+    
+    for (let i = period; i < trueRanges.length; i++) {
+        atr = ((atr * (period - 1)) + trueRanges[i]) / period;
+    }
+    
+    const avgPrice = (Math.max(...highs) + Math.min(...lows)) / 2;
+    const atrPercent = (atr / avgPrice) * 100;
+    
+    return {
+        value: atr.toFixed(4),
+        status: getATRStatus(atrPercent)
+    };
 }
 
-function calculateCCI(highs, lows, closes, period) {
-    if (highs.length < period) return 0;
+function calculatePreciseCCI(highs, lows, closes, period = 20) {
+    if (highs.length < period) {
+        return { value: '0.0', status: 'داده ناکافی' };
+    }
     
     const typicalPrices = [];
     for (let i = 0; i < highs.length; i++) {
@@ -1151,22 +1208,66 @@ function calculateCCI(highs, lows, closes, period) {
     
     const recentTP = typicalPrices.slice(-period);
     const smaTP = recentTP.reduce((sum, tp) => sum + tp, 0) / period;
-    
-    const meanDev = recentTP.reduce((sum, tp) => sum + Math.abs(tp - smaTP), 0) / period;
-    
     const currentTP = typicalPrices[typicalPrices.length - 1];
     
-    return (currentTP - smaTP) / (0.015 * meanDev);
+    // Calculate mean deviation
+    const meanDev = recentTP.reduce((sum, tp) => sum + Math.abs(tp - smaTP), 0) / period;
+    
+    if (meanDev === 0) {
+        return { value: '0.0', status: 'خنثی' };
+    }
+    
+    const cci = (currentTP - smaTP) / (0.015 * meanDev);
+    
+    return {
+        value: cci.toFixed(1),
+        status: getCCIStatus(cci)
+    };
 }
 
-function calculateADX(highs, lows, closes, period) {
-    // Simplified ADX calculation
-    if (highs.length < period + 1) return 25;
+function calculatePreciseADX(highs, lows, closes, period = 14) {
+    if (highs.length < period * 2) {
+        return { value: '25.0', status: 'داده ناکافی' };
+    }
     
-    const atr = calculateATR(highs, lows, closes, period);
-    const priceRange = Math.max(...highs.slice(-period)) - Math.min(...lows.slice(-period));
+    const trueRanges = [];
+    const dmPlus = [];
+    const dmMinus = [];
     
-    return Math.min(100, (atr / priceRange) * 100 * 2);
+    for (let i = 1; i < highs.length; i++) {
+        // True Range
+        const tr1 = highs[i] - lows[i];
+        const tr2 = Math.abs(highs[i] - closes[i - 1]);
+        const tr3 = Math.abs(lows[i] - closes[i - 1]);
+        trueRanges.push(Math.max(tr1, tr2, tr3));
+        
+        // Directional Movement
+        const highDiff = highs[i] - highs[i - 1];
+        const lowDiff = lows[i - 1] - lows[i];
+        
+        dmPlus.push((highDiff > lowDiff && highDiff > 0) ? highDiff : 0);
+        dmMinus.push((lowDiff > highDiff && lowDiff > 0) ? lowDiff : 0);
+    }
+    
+    // Calculate smoothed values
+    let smoothedTR = trueRanges.slice(0, period).reduce((sum, tr) => sum + tr, 0);
+    let smoothedDMPlus = dmPlus.slice(0, period).reduce((sum, dm) => sum + dm, 0);
+    let smoothedDMMinus = dmMinus.slice(0, period).reduce((sum, dm) => sum + dm, 0);
+    
+    for (let i = period; i < trueRanges.length; i++) {
+        smoothedTR = smoothedTR - (smoothedTR / period) + trueRanges[i];
+        smoothedDMPlus = smoothedDMPlus - (smoothedDMPlus / period) + dmPlus[i];
+        smoothedDMMinus = smoothedDMMinus - (smoothedDMMinus / period) + dmMinus[i];
+    }
+    
+    const diPlus = (smoothedDMPlus / smoothedTR) * 100;
+    const diMinus = (smoothedDMMinus / smoothedTR) * 100;
+    const dx = Math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100;
+    
+    return {
+        value: dx.toFixed(1),
+        status: getADXStatus(dx)
+    };
 }
 
 // Status Functions
@@ -1174,22 +1275,6 @@ function getRSIStatus(rsi) {
     if (rsi > 70) return 'خرید شده';
     if (rsi < 30) return 'فروش شده';
     return 'خنثی';
-}
-
-function getMACDStatus(closes) {
-    return Math.random() > 0.5 ? 'صعودی' : 'نزولی';
-}
-
-function getSMAStatus(closes, period) {
-    const sma = calculateSMA(closes, period);
-    const currentPrice = closes[closes.length - 1];
-    return currentPrice > sma ? 'بالای میانگین' : 'زیر میانگین';
-}
-
-function getEMAStatus(closes, period) {
-    const ema = calculateEMA(closes, period);
-    const currentPrice = closes[closes.length - 1];
-    return currentPrice > ema ? 'روند صعودی' : 'روند نزولی';
 }
 
 function getStochasticStatus(stoch) {
@@ -1204,18 +1289,7 @@ function getWilliamsRStatus(willR) {
     return 'خنثی';
 }
 
-function getBollingerStatus(closes, period) {
-    const position = calculateBollingerPosition(closes, period);
-    if (position === 'بالای نوار بالا') return 'خرید شده';
-    if (position === 'زیر نوار پایین') return 'فروش شده';
-    return 'خنثی';
-}
-
-function getATRStatus(highs, lows, closes, period) {
-    const atr = calculateATR(highs, lows, closes, period);
-    const avgPrice = (Math.max(...highs.slice(-period)) + Math.min(...lows.slice(-period))) / 2;
-    const atrPercent = (atr / avgPrice) * 100;
-    
+function getATRStatus(atrPercent) {
     if (atrPercent > 3) return 'نوسان بالا';
     if (atrPercent < 1) return 'نوسان پایین';
     return 'نوسان عادی';
@@ -1233,22 +1307,6 @@ function getADXStatus(adx) {
     return 'روند متوسط';
 }
 
-function updateIndicatorsFromCache(cachedIndicators) {
-    const indicators = cachedIndicators.data;
-    Object.keys(indicators).forEach(key => {
-        const indicator = indicators[key];
-        const valueEl = document.getElementById(`${key}Value`);
-        const statusEl = document.getElementById(`${key}Status`);
-        const timeEl = document.getElementById(`${key}Time`);
-        
-        if (valueEl) valueEl.textContent = indicator.value;
-        if (statusEl) statusEl.textContent = indicator.status;
-        if (timeEl) timeEl.textContent = indicator.time;
-    });
-    
-    showNotification('اندیکاتورها از کش بازیابی شد', 'cache');
-}
-
 function updateIndicatorsDisplay(indicatorsData) {
     Object.keys(indicatorsData).forEach(key => {
         const indicator = indicatorsData[key];
@@ -1262,7 +1320,7 @@ function updateIndicatorsDisplay(indicatorsData) {
             // Add updating animation
             if (cardEl) {
                 cardEl.classList.add('updating');
-                setTimeout(() => cardEl.classList.remove('updating'), 1000);
+                setTimeout(() => cardEl.classList.remove('updating'), 1500);
             }
         }
         if (statusEl) statusEl.textContent = indicator.status;
@@ -1412,17 +1470,17 @@ function setupPeriodicUpdates() {
     // Update timestamp every minute
     setInterval(updateTimestamp, 60000);
     
-    // Update coin data every 3 minutes (cache-aware)
+    // Update coin data every 3 minutes
     setInterval(() => {
         if (currentSelectedCoin.id) {
             loadCoinData(currentSelectedCoin.id);
         }
     }, 180000);
     
-    // Update indicators every 2 minutes for live data
+    // Update LIVE indicators every 1 minute for real-time data
     setInterval(() => {
         updateLiveTechnicalIndicators();
-    }, 120000);
+    }, 60000);
     
     // Update market data every 10 minutes
     setInterval(() => {
@@ -1431,37 +1489,6 @@ function setupPeriodicUpdates() {
     
     // Refresh BitDegree F&G index every 30 minutes
     setInterval(refreshBitDegreeIndex, 30 * 60 * 1000);
-    
-    // Clean old cache every hour
-    setInterval(() => {
-        cleanOldCache();
-    }, 3600000);
-}
-
-function cleanOldCache() {
-    const keys = Object.keys(localStorage);
-    let cleaned = 0;
-    
-    keys.forEach(key => {
-        if (key.startsWith(CACHE_CONFIG.PREFIX)) {
-            try {
-                const cached = JSON.parse(localStorage.getItem(key));
-                if (cached && cached.expiry && Date.now() > cached.expiry) {
-                    localStorage.removeItem(key);
-                    cleaned++;
-                }
-            } catch (error) {
-                // Remove corrupted cache
-                localStorage.removeItem(key);
-                cleaned++;
-            }
-        }
-    });
-    
-    if (cleaned > 0) {
-        console.log(`🧹 Cleaned ${cleaned} expired cache entries`);
-        CacheManager.updateCacheStatus();
-    }
 }
 
 // Notification system
@@ -1492,20 +1519,19 @@ function initializeTelegramWebApp() {
         tg.setHeaderColor('#3498db');
         tg.setBackgroundColor('#ffffff');
         
-        tg.MainButton.text = 'اشتراک گذاری تحلیل';
+        tg.MainButton.text = 'اشتراک اندیکاتورهای زنده';
         tg.MainButton.show();
         tg.MainButton.onClick(() => {
             const shareData = {
-                action: 'share_live_analysis',
+                action: 'share_live_indicators',
                 coin: currentSelectedCoin,
                 timeframe: currentTimeFrame,
-                cacheSize: CacheManager.getCacheSize(),
                 timestamp: new Date().toISOString(),
-                indicators: 'live_data'
+                source: 'binance_api'
             };
             
             tg.sendData(JSON.stringify(shareData));
-            showNotification('تحلیل زنده اشتراک گذاری شد', 'success');
+            showNotification('اندیکاتورهای زنده اشتراک گذاری شد', 'success');
         });
         
         tg.onEvent('backButtonClicked', () => tg.close());
@@ -1536,73 +1562,6 @@ function formatLargeNumber(num) {
     return num.toFixed(2);
 }
 
-// Enhanced Error Handling
-window.addEventListener('error', function(e) {
-    console.error('Global error:', e.error);
-    showNotification('خطای سیستم رخ داد - داده‌ها از کش بازیابی می‌شود', 'error');
-});
-
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('Unhandled promise rejection:', e.reason);
-    showNotification('خطای شبکه - در حال استفاده از داده‌های کش شده', 'error');
-});
-
-// Network Status Detection
-window.addEventListener('online', function() {
-    const cacheStatus = document.getElementById('cacheStatus');
-    if (cacheStatus) {
-        cacheStatus.className = 'cache-status online';
-        cacheStatus.textContent = '📶 آنلاین - داده‌ها به‌روزرسانی می‌شوند';
-    }
-    showNotification('اتصال اینترنت برقرار شد', 'success');
-});
-
-window.addEventListener('offline', function() {
-    const cacheStatus = document.getElementById('cacheStatus');
-    if (cacheStatus) {
-        cacheStatus.className = 'cache-status offline';
-        cacheStatus.textContent = '📡 آفلاین - داده‌های کش در دسترس';
-    }
-    showNotification('اتصال اینترنت قطع شد - داده‌های کش در دسترس است', 'info');
-});
-
-// Performance monitoring
-function logPerformance() {
-    if (window.performance && window.performance.timing) {
-        const timing = window.performance.timing;
-        const loadTime = timing.loadEventEnd - timing.navigationStart;
-        console.log(`⏱️ Page load time: ${loadTime}ms`);
-        
-        // Cache performance metrics
-        CacheManager.set('performance', {
-            loadTime: loadTime,
-            timestamp: Date.now()
-        }, 24 * 60 * 60 * 1000); // 24 hours
-    }
-}
-
-// Initialize performance monitoring
-window.addEventListener('load', logPerformance);
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + R for refresh indicators
-    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-        e.preventDefault();
-        updateLiveTechnicalIndicators();
-        showNotification('اندیکاتورها به‌روزرسانی شد', 'info');
-    }
-    
-    // Escape to clear search
-    if (e.key === 'Escape') {
-        const searchBox = document.getElementById('cryptoSearch');
-        if (searchBox) {
-            searchBox.value = '';
-            hideSearchDropdown();
-        }
-    }
-});
-
 // Global function exports
 window.openTab = openTab;
 window.selectCoin = selectCoin;
@@ -1612,80 +1571,25 @@ window.changeTimeFrame = changeTimeFrame;
 // Initialize cache manager
 window.CacheManager = CacheManager;
 
-// Service Worker registration for better caching
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-            console.log('Service Worker registered successfully');
-        })
-        .catch(error => {
-            console.log('Service Worker registration failed');
-        });
-}
-
-// Final initialization log
-console.log('✅ Complete Final Crypto Tracker loaded successfully!');
-console.log(`📊 Features: Live Indicators, Timeframes, Advanced Caching, Error Handling`);
-console.log(`💾 Cache size: ${CacheManager.getCacheSize()} bytes`);
+// Final initialization
+console.log('✅ LIVE Technical Indicators Crypto Tracker loaded successfully!');
+console.log(`🔥 Features: Real Binance API, Live Indicators, Dynamic Timeframes`);
+console.log(`📊 Current setup: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
 
 // Auto-update indicators on visibility change
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
-        // Page became visible, update indicators
         setTimeout(() => {
             updateLiveTechnicalIndicators();
         }, 1000);
     }
 });
 
-// Touch events for mobile
-let touchStartX = 0;
-let touchStartY = 0;
-
-document.addEventListener('touchstart', function(e) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-}, { passive: true });
-
-document.addEventListener('touchend', function(e) {
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    
-    const deltaX = touchEndX - touchStartX;
-    const deltaY = touchEndY - touchStartY;
-    
-    // Swipe down to refresh (on indicators section)
-    if (deltaY > 100 && Math.abs(deltaX) < 50) {
-        const target = e.target.closest('.indicators-section');
-        if (target) {
-            updateLiveTechnicalIndicators();
-            showNotification('اندیکاتورها بروزرسانی شد', 'info');
-        }
+// Keyboard shortcut for manual refresh
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        updateLiveTechnicalIndicators();
+        showNotification(`اندیکاتورهای ${currentSelectedCoin.symbol} به‌روزرسانی شد`, 'info');
     }
-}, { passive: true });
-
-// Auto-save user preferences
-function saveUserPreferences() {
-    const preferences = {
-        selectedCoin: currentSelectedCoin,
-        timeFrame: currentTimeFrame,
-        theme: 'light',
-        autoRefresh: true,
-        timestamp: Date.now()
-    };
-    
-    CacheManager.set('userPreferences', preferences, 30 * 24 * 60 * 60 * 1000); // 30 days
-}
-
-// Save preferences on unload
-window.addEventListener('beforeunload', function() {
-    saveUserPreferences();
 });
-
-// Initialize with a final check
-setTimeout(() => {
-    if (currentSelectedCoin && currentSelectedCoin.id) {
-        console.log(`🎯 Active coin: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
-        console.log(`📈 System ready with ${Object.keys(generateRealisticIndicators()).length} indicators`);
-    }
-}, 3000);
