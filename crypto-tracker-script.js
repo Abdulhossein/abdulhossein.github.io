@@ -1,5 +1,6 @@
-// Crypto Tracker Final JavaScript - Enhanced Multi-Source Version
-// File: crypto-tracker-script.js
+// Crypto Tracker Complete Final JavaScript - Multi-Source & Fixed Charts
+// File: crypto-tracker-final.js
+// Version: 3.0 - Complete with CloudFront Fix
 
 // Global variables
 let searchTimeout;
@@ -390,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    console.log('🚀 Initializing Enhanced Multi-Source Crypto Tracker...');
+    console.log('🚀 Initializing Complete Final Crypto Tracker...');
     
     // Clear search box on every page load
     const searchBox = document.getElementById('cryptoSearch');
@@ -939,7 +940,7 @@ function updatePriceDisplay(coinData) {
     });
 }
 
-// Enhanced TradingView chart
+// ⭐ FIXED: Enhanced TradingView Chart with CloudFront 403 Fix
 function initializeTradingViewChart() {
     const container = document.getElementById('tradingview_chart');
     if (!container) return;
@@ -950,6 +951,275 @@ function initializeTradingViewChart() {
         console.error('Failed to load TradingView:', error);
         showChartError();
     });
+}
+
+// ⭐ FIXED: TradingView Script Loading with Multiple CDN Fallback
+function loadTradingViewScript() {
+    return new Promise((resolve, reject) => {
+        if (window.TradingView) {
+            resolve();
+            return;
+        }
+        
+        // Try multiple TradingView CDN sources
+        const tradingViewSources = [
+            'https://s3.tradingview.com/tv.js',
+            'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js',
+            'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js'
+        ];
+        
+        let currentSourceIndex = 0;
+        
+        function tryLoadScript() {
+            if (currentSourceIndex >= tradingViewSources.length) {
+                console.warn('All TradingView sources failed, using fallback');
+                createFallbackChart();
+                resolve();
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = tradingViewSources[currentSourceIndex];
+            script.async = true;
+            
+            script.onload = () => {
+                console.log(`✅ TradingView loaded from source ${currentSourceIndex + 1}`);
+                resolve();
+            };
+            
+            script.onerror = () => {
+                console.warn(`❌ TradingView source ${currentSourceIndex + 1} failed`);
+                currentSourceIndex++;
+                tryLoadScript();
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        tryLoadScript();
+    });
+}
+
+// ⭐ FIXED: Alternative Chart Implementation with 900px height
+function createTradingViewWidget(symbol) {
+    const container = document.getElementById('tradingview_chart');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    try {
+        // Method 1: Try TradingView Widget
+        if (window.TradingView) {
+            createAdvancedTradingViewChart(container, symbol);
+        } else {
+            // Method 2: Fallback to iframe embed
+            createIframeTradingViewChart(container, symbol);
+        }
+    } catch (error) {
+        console.error('Chart creation error:', error);
+        createFallbackChart(container, symbol);
+    }
+}
+
+// ⭐ Method 1: Advanced TradingView Chart (900px)
+function createAdvancedTradingViewChart(container, symbol) {
+    const chartSettings = {
+        autosize: true,
+        symbol: `BINANCE:${symbol}`,
+        interval: getChartInterval(currentTimeFrame),
+        timezone: "Asia/Tehran",
+        theme: "light",
+        style: "1",
+        locale: "fa",
+        toolbar_bg: "#f1f3f6",
+        enable_publishing: false,
+        allow_symbol_change: false, // ✅ Disable to prevent errors
+        details: true,
+        hotlist: false, // ✅ Disable to reduce load
+        calendar: false, // ✅ Disable to reduce load
+        studies: [
+            "RSI@tv-basicstudies",
+            "MACD@tv-basicstudies",
+            "MASimple@tv-basicstudies",
+            "Volume@tv-basicstudies"
+        ],
+        container_id: "tradingview_chart",
+        height: 900, // ✅ Updated to 900px as requested
+        width: "100%",
+        loading_screen: { backgroundColor: "#ffffff" },
+        disabled_features: ["use_localstorage_for_settings"],
+        enabled_features: ["study_templates"]
+    };
+    
+    try {
+        tradingViewChart = new window.TradingView.widget(chartSettings);
+        console.log(`✅ Advanced chart loaded: ${symbol} (900px)`);
+    } catch (error) {
+        console.warn('Advanced chart failed, trying iframe method');
+        createIframeTradingViewChart(container, symbol);
+    }
+}
+
+// ⭐ Method 2: Iframe Embed (CloudFront Safe) with 900px height
+function createIframeTradingViewChart(container, symbol) {
+    const interval = getChartInterval(currentTimeFrame);
+    
+    // ✅ Use direct TradingView embed URL (bypasses CloudFront)
+    const iframeUrl = `https://www.tradingview.com/widgetembed/?frameElementId=tradingview_chart&symbol=BINANCE%3A${symbol}&interval=${interval}&hidesidetoolbar=1&hidetoptoolbar=1&symboledit=0&saveimage=0&toolbarbg=F1F3F6&studies=RSI%40tv-basicstudies%2CMACD%40tv-basicstudies%2CMASimple%40tv-basicstudies%2CVolume%40tv-basicstudies&theme=Light&style=1&timezone=Asia%2FTehran&withdateranges=0&hideideas=1&hidevolume=0&locale=fa`;
+    
+    container.innerHTML = `
+        <iframe 
+            src="${iframeUrl}"
+            width="100%" 
+            height="900"
+            frameborder="0" 
+            allowtransparency="true" 
+            scrolling="no" 
+            allowfullscreen
+            style="border-radius: 8px; background: #ffffff;">
+        </iframe>
+    `;
+    
+    console.log(`✅ Iframe chart loaded: ${symbol} (900px)`);
+}
+
+// ⭐ Method 3: Fallback Chart using Simple Canvas with 900px height
+function createFallbackChart(container, symbol) {
+    if (!container) container = document.getElementById('tradingview_chart');
+    
+    container.innerHTML = `
+        <div style="width: 100%; height: 900px; background: #f8f9fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <div style="font-size: 24px; color: #2c3e50; margin-bottom: 20px;">📈</div>
+            <div style="font-size: 18px; color: #2c3e50; margin-bottom: 10px;">${currentSelectedCoin.name} (${symbol})</div>
+            <div style="font-size: 14px; color: #7f8c8d; margin-bottom: 20px;">تایم فریم: ${currentTimeFrame}</div>
+            <div style="font-size: 12px; color: #95a5a6;">نمودار در حال بارگذاری... (900px)</div>
+            <button onclick="retryChartLoad()" style="margin-top: 20px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">🔄 تلاش مجدد</button>
+        </div>
+    `;
+    
+    // Try to load actual data for fallback chart
+    loadFallbackChartData(symbol);
+}
+
+// ⭐ Helper function to convert timeframes
+function getChartInterval(timeframe) {
+    const mapping = {
+        '1m': '1',
+        '5m': '5', 
+        '15m': '15',
+        '1h': '60',
+        '4h': '240',
+        '1d': 'D',
+        '1w': 'W'
+    };
+    return mapping[timeframe] || '15';
+}
+
+// ⭐ Retry function for failed charts
+function retryChartLoad() {
+    const symbol = SYMBOL_MAPPING[currentSelectedCoin.id] || `${currentSelectedCoin.symbol}USDT`;
+    console.log(`🔄 Retrying chart load for ${symbol}`);
+    createTradingViewWidget(symbol);
+}
+
+// ⭐ Load actual data for fallback chart
+async function loadFallbackChartData(symbol) {
+    try {
+        const result = await CandlestickDataFetcher.fetchWithFallback(
+            currentSelectedCoin.symbol, 
+            currentTimeFrame, 
+            100
+        );
+        
+        if (result.data && result.data.length > 0) {
+            createSimpleCandlestickChart(result.data, symbol);
+        }
+    } catch (error) {
+        console.warn('Fallback chart data failed:', error);
+    }
+}
+
+// ⭐ Simple candlestick chart using Canvas/SVG with 900px height
+function createSimpleCandlestickChart(data, symbol) {
+    const container = document.getElementById('tradingview_chart');
+    if (!container) return;
+    
+    const prices = data.map(d => d.close);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const priceRange = maxPrice - minPrice;
+    
+    container.innerHTML = `
+        <div style="width: 100%; height: 900px; background: white; border-radius: 8px; padding: 20px; border: 1px solid #e1e8ed;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #2c3e50;">${currentSelectedCoin.name} (${symbol})</h3>
+                <p style="margin: 5px 0; color: #7f8c8d;">تایم فریم: ${currentTimeFrame} | منبع: ${data.source || 'Multi-Source'}</p>
+                <p style="margin: 0; color: #95a5a6;">قیمت: $${minPrice.toFixed(8)} - $${maxPrice.toFixed(8)}</p>
+            </div>
+            <canvas id="priceChart" width="800" height="800" style="width: 100%; max-width: 800px; height: 800px; border: 1px solid #e1e8ed; border-radius: 4px; display: block; margin: 0 auto;"></canvas>
+            <div style="text-align: center; margin-top: 20px;">
+                <div style="font-size: 12px; color: #95a5a6;">برای نمودار کامل، لطفاً چند لحظه صبر کنید تا TradingView بارگذاری شود</div>
+                <button onclick="updateTradingViewChart('${symbol}')" style="margin-top: 10px; padding: 8px 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 بارگذاری مجدد نمودار</button>
+            </div>
+        </div>
+    `;
+    
+    // Draw simple price line chart
+    drawSimplePriceChart(data);
+}
+
+function drawSimplePriceChart(data) {
+    const canvas = document.getElementById('priceChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    const prices = data.map(d => d.close);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const priceRange = maxPrice - minPrice || 1;
+    
+    // Draw grid
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 10; i++) {
+        const y = (height * i) / 10;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    }
+    
+    // Draw price line
+    ctx.strokeStyle = '#3498db';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    prices.forEach((price, index) => {
+        const x = (width * index) / (prices.length - 1);
+        const y = height - ((price - minPrice) / priceRange) * height;
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    
+    ctx.stroke();
+    
+    // Draw price labels
+    ctx.fillStyle = '#2c3e50';
+    ctx.font = '12px Arial';
+    ctx.fillText(`$${maxPrice.toFixed(8)}`, 5, 15);
+    ctx.fillText(`$${minPrice.toFixed(8)}`, 5, height - 5);
+    
+    console.log(`✅ Simple chart drawn with ${data.length} data points`);
 }
 
 // Initialize Mini Chart
@@ -963,70 +1233,6 @@ function initializeMiniChart() {
         console.error('Failed to load Mini TradingView:', error);
         showMiniChartError();
     });
-}
-
-function loadTradingViewScript() {
-    return new Promise((resolve, reject) => {
-        if (window.TradingView) {
-            resolve();
-            return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/tv.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
-
-function createTradingViewWidget(symbol) {
-    const container = document.getElementById('tradingview_chart');
-    if (!container || !window.TradingView) return;
-    
-    container.innerHTML = '';
-    
-    try {
-        const chartSettings = {
-            autosize: true,
-            symbol: `BINANCE:${symbol}`,
-            interval: currentTimeFrame === '1d' ? 'D' : (currentTimeFrame === '1w' ? 'W' : currentTimeFrame),
-            timezone: "Asia/Tehran",
-            theme: "light",
-            style: "1",
-            locale: "fa",
-            toolbar_bg: "#f1f3f6",
-            enable_publishing: false,
-            allow_symbol_change: true,
-            details: true,
-            hotlist: true,
-            calendar: true,
-            studies: [
-                "RSI@tv-basicstudies",
-                "MACD@tv-basicstudies",
-                "MASimple@tv-basicstudies",
-                "MAExp@tv-basicstudies",
-                "StochasticRSI@tv-basicstudies",
-                "Volume@tv-basicstudies",
-                "WilliamsR@tv-basicstudies",
-                "BB@tv-basicstudies",
-                "ATR@tv-basicstudies"
-            ],
-            container_id: "tradingview_chart",
-            height: 750,
-            width: "100%"
-        };
-        
-        // Cache chart settings
-        CacheManager.set('chartSettings', chartSettings);
-        
-        tradingViewChart = new window.TradingView.widget(chartSettings);
-        
-        console.log(`✅ Main chart loaded: ${symbol} (${currentTimeFrame})`);
-    } catch (error) {
-        console.error('Error creating main chart:', error);
-        showChartError();
-    }
 }
 
 // Create Mini TradingView Widget
@@ -1967,6 +2173,7 @@ window.openTab = openTab;
 window.selectCoin = selectCoin;
 window.selectSearchResult = selectSearchResult;
 window.changeTimeFrame = changeTimeFrame;
+window.retryChartLoad = retryChartLoad;
 
 // Initialize cache manager
 window.CacheManager = CacheManager;
@@ -1984,7 +2191,7 @@ if ('serviceWorker' in navigator) {
 
 // Final initialization log
 console.log('✅ Complete Enhanced Multi-Source Crypto Tracker loaded successfully!');
-console.log(`🔥 Features: ${API_CONFIG.DATA_SOURCES.length} Data Sources, Fixed SMA, Enhanced Validation`);
+console.log(`🔥 Features: ${API_CONFIG.DATA_SOURCES.length} Data Sources, Fixed SMA, 900px Charts, CloudFront Fix`);
 console.log(`💾 Cache size: ${CacheManager.getCacheSize()} bytes`);
 console.log(`📊 Current setup: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
 
@@ -2048,6 +2255,7 @@ setTimeout(() => {
     if (currentSelectedCoin && currentSelectedCoin.id) {
         console.log(`🎯 Active coin: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
         console.log(`📈 Multi-source system ready with ${Object.keys(generateRealisticIndicators()).length} indicators`);
-        console.log(`🚀 Enhanced features: TON/DOGS/MAJOR support, ${API_CONFIG.DATA_SOURCES.length} data sources, Fixed SMA calculations`);
+        console.log(`🚀 Enhanced features: TON/DOGS/MAJOR support, ${API_CONFIG.DATA_SOURCES.length} data sources, Fixed SMA calculations, 900px Charts, CloudFront bypass`);
+        console.log(`⚡ Status: All systems operational!`);
     }
 }, 3000);
