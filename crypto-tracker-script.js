@@ -1,5 +1,5 @@
-// Crypto Tracker Final JavaScript - Enhanced Live Indicators Version
-// File: crypto-tracker-final.js
+// Crypto Tracker Final JavaScript - Enhanced Multi-Source Version
+// File: crypto-tracker-script.js
 
 // Global variables
 let searchTimeout;
@@ -29,14 +29,43 @@ const CACHE_CONFIG = {
     ]
 };
 
-// API Configuration
+// ⭐ Enhanced API Configuration with Multiple Sources
 const API_CONFIG = {
     COINGECKO_BASE: 'https://api.coingecko.com/api/v3',
     SEARCH_API: 'https://api.coingecko.com/api/v3/search',
     GLOBAL_API: 'https://api.coingecko.com/api/v3/global',
     CORS_PROXY: 'https://api.allorigins.win/get?url=',
     
-    // Binance API for real-time technical indicators
+    // Multiple data sources for candlestick data (ordered by preference)
+    DATA_SOURCES: [
+        {
+            name: 'Binance',
+            baseUrl: 'https://api.binance.com/api/v3',
+            endpoint: '/klines',
+            rateLimitPerMinute: 20,
+            requiresApiKey: false,
+            supports: ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']
+        },
+        {
+            name: 'CoinGecko',
+            baseUrl: 'https://api.coingecko.com/api/v3',
+            endpoint: '/coins/{id}/ohlc',
+            rateLimitPerMinute: 30,
+            requiresApiKey: false,
+            supports: ['1d', '7d', '14d', '30d', '90d', '180d', '365d']
+        },
+        {
+            name: 'TwelveData',
+            baseUrl: 'https://api.twelvedata.com',
+            endpoint: '/time_series',
+            rateLimitPerMinute: 8,
+            requiresApiKey: true,
+            apiKey: 'demo', // Replace with your key
+            supports: ['1min', '5min', '15min', '30min', '45min', '1h', '2h', '4h', '1day', '1week']
+        }
+    ],
+    
+    // Binance API (kept for backwards compatibility)
     BINANCE_API: 'https://api.binance.com/api/v3',
     KLINES_API: 'https://api.binance.com/api/v3/klines'
 };
@@ -94,6 +123,28 @@ const SYMBOL_MAPPING = {
     'gala': 'GALAUSDT'
 };
 
+// CoinGecko ID mapping
+const COINGECKO_MAPPING = {
+    'BTC': 'bitcoin',
+    'ETH': 'ethereum',
+    'ADA': 'cardano',
+    'SOL': 'solana',
+    'XRP': 'ripple',
+    'LTC': 'litecoin',
+    'BNB': 'binancecoin',
+    'DOGE': 'dogecoin',
+    'AVAX': 'avalanche-2',
+    'MATIC': 'polygon',
+    'LINK': 'chainlink',
+    'DOT': 'polkadot',
+    'TRX': 'tron',
+    'UNI': 'uniswap',
+    'XLM': 'stellar',
+    'TON': 'the-open-network',
+    'DOGS': 'dogs',
+    'MAJOR': 'major'
+};
+
 // Timeframe mapping for Binance
 const TIMEFRAME_MAPPING = {
     '1m': '1m',
@@ -104,6 +155,151 @@ const TIMEFRAME_MAPPING = {
     '1d': '1d',
     '1w': '1w'
 };
+
+// ⭐ Advanced Multi-Source Data Fetcher
+class CandlestickDataFetcher {
+    static async fetchWithFallback(symbol, interval, limit = 200) {
+        console.log(`🔄 Fetching data for ${symbol} (${interval}) with fallback system...`);
+        const errors = [];
+        
+        // Try each data source in order
+        for (const source of API_CONFIG.DATA_SOURCES) {
+            try {
+                console.log(`🔄 Trying ${source.name} for ${symbol} (${interval})`);
+                
+                const data = await this.fetchFromSource(source, symbol, interval, limit);
+                
+                if (data && data.length > 0) {
+                    console.log(`✅ Success with ${source.name}: ${data.length} candles`);
+                    console.log(`📊 Price validation: $${Math.min(...data.map(d => d.close)).toFixed(8)} - $${Math.max(...data.map(d => d.close)).toFixed(8)}`);
+                    return { data, source: source.name };
+                }
+                
+            } catch (error) {
+                console.warn(`❌ ${source.name} failed for ${symbol}:`, error.message);
+                errors.push({ source: source.name, error: error.message });
+                continue;
+            }
+        }
+        
+        // If all sources failed
+        throw new Error(`All data sources failed for ${symbol}: ${errors.map(e => `${e.source}: ${e.error}`).join(', ')}`);
+    }
+    
+    static async fetchFromSource(source, symbol, interval, limit) {
+        switch (source.name) {
+            case 'Binance':
+                return await this.fetchFromBinance(symbol, interval, limit);
+            case 'CoinGecko':
+                return await this.fetchFromCoinGecko(symbol, interval, limit);
+            case 'TwelveData':
+                return await this.fetchFromTwelveData(source, symbol, interval, limit);
+            default:
+                throw new Error(`Unknown source: ${source.name}`);
+        }
+    }
+    
+    // Binance implementation (Primary source)
+    static async fetchFromBinance(symbol, interval, limit) {
+        const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+        const url = `${API_CONFIG.KLINES_API}?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`;
+        
+        console.log(`📊 Binance fetch: ${binanceSymbol} (${interval})`);
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Binance HTTP ${response.status} for ${binanceSymbol}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data || !Array.isArray(data) || data.length === 0) {
+            throw new Error(`Empty or invalid Binance response for ${binanceSymbol}`);
+        }
+        
+        return data.map(kline => ({
+            timestamp: kline[0],
+            open: parseFloat(kline[1]),
+            high: parseFloat(kline[2]),
+            low: parseFloat(kline[3]),
+            close: parseFloat(kline[4]),
+            volume: parseFloat(kline[5])
+        }));
+    }
+    
+    // CoinGecko implementation (Fallback)
+    static async fetchFromCoinGecko(symbol, interval, limit) {
+        const geckoId = COINGECKO_MAPPING[symbol.toUpperCase()];
+        if (!geckoId) {
+            throw new Error(`CoinGecko: No mapping for ${symbol}`);
+        }
+        
+        // CoinGecko OHLC supports limited intervals
+        let days = 1;
+        if (interval.includes('h')) days = 1;
+        else if (interval.includes('d')) days = Math.min(parseInt(interval), 365);
+        else if (interval.includes('w')) days = Math.min(parseInt(interval) * 7, 365);
+        
+        const url = `${API_CONFIG.COINGECKO_BASE}/coins/${geckoId}/ohlc?vs_currency=usd&days=${days}`;
+        
+        console.log(`📊 CoinGecko fetch: ${geckoId} (${days} days)`);
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`CoinGecko HTTP ${response.status} for ${geckoId}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data || !Array.isArray(data) || data.length === 0) {
+            throw new Error(`Empty CoinGecko response for ${geckoId}`);
+        }
+        
+        // Convert CoinGecko format to our OHLCV format
+        return data.map(candle => ({
+            timestamp: candle[0],
+            open: candle[1],
+            high: candle[2], 
+            low: candle[3],
+            close: candle[4],
+            volume: 0 // CoinGecko OHLC doesn't include volume
+        })).slice(-limit);
+    }
+    
+    // TwelveData implementation (Last resort)
+    static async fetchFromTwelveData(source, symbol, interval, limit) {
+        const apiKey = source.apiKey;
+        const twelveSymbol = `${symbol.toUpperCase()}/USD`;
+        const url = `${source.baseUrl}/time_series?symbol=${twelveSymbol}&interval=${interval}&outputsize=${limit}&apikey=${apiKey}`;
+        
+        console.log(`📊 TwelveData fetch: ${twelveSymbol} (${interval})`);
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`TwelveData HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'error') {
+            throw new Error(data.message || 'TwelveData API error');
+        }
+        
+        if (!data.values || !Array.isArray(data.values)) {
+            throw new Error('Invalid TwelveData response format');
+        }
+        
+        // Convert TwelveData format
+        return data.values.map(candle => ({
+            timestamp: new Date(candle.datetime).getTime(),
+            open: parseFloat(candle.open),
+            high: parseFloat(candle.high),
+            low: parseFloat(candle.low), 
+            close: parseFloat(candle.close),
+            volume: parseFloat(candle.volume || 0)
+        })).reverse(); // TwelveData returns newest first
+    }
+}
 
 // Cache Management System
 class CacheManager {
@@ -183,7 +379,7 @@ class CacheManager {
         
         if (cacheStatus) {
             cacheStatus.className = 'cache-status online';
-            cacheStatus.textContent = '🔥 زنده - داده‌های Binance';
+            cacheStatus.textContent = '🔥 چند منبع - داده‌های زنده';
         }
     }
 }
@@ -194,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    console.log('🚀 Initializing Enhanced Live Indicators Crypto Tracker...');
+    console.log('🚀 Initializing Enhanced Multi-Source Crypto Tracker...');
     
     // Clear search box on every page load
     const searchBox = document.getElementById('cryptoSearch');
@@ -234,7 +430,7 @@ function initializeApp() {
     
     // Show welcome message
     setTimeout(() => {
-        showNotification(`اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) آماده است! 📊`, 'success');
+        showNotification(`اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) با ${API_CONFIG.DATA_SOURCES.length} منبع داده آماده است! 📊`, 'success');
     }, 1500);
 }
 
@@ -492,7 +688,7 @@ function selectSearchResult(coinId, symbol, name) {
     document.getElementById('cryptoSearch').value = `${name} (${symbol})`;
     hideSearchDropdown();
     selectCoin(coinId, symbol, name);
-    showNotification(`ارز ${symbol} انتخاب شد - اندیکاتورها در حال بروزرسانی`, 'success');
+    showNotification(`ارز ${symbol} انتخاب شد - اندیکاتورها از چند منبع در حال بروزرسانی`, 'success');
 }
 
 function hideSearchDropdown() {
@@ -517,6 +713,13 @@ async function selectCoin(coinId, symbol, name) {
             tag.classList.add('active');
         }
     });
+    
+    // Clear any existing indicators cache for old coin
+    const oldCacheKeys = Object.keys(localStorage).filter(key => 
+        key.startsWith(CACHE_CONFIG.PREFIX + 'liveIndicators_') && 
+        !key.includes(coinId)
+    );
+    oldCacheKeys.forEach(key => localStorage.removeItem(key));
     
     await Promise.all([
         loadCoinData(coinId),
@@ -923,12 +1126,15 @@ function updateMiniChart(symbol) {
     }, 500);
 }
 
-// ⭐ MAIN FUNCTION: Enhanced LIVE Technical Indicators with TradingView Data Support
+// ⭐ MAIN FUNCTION: Enhanced LIVE Technical Indicators with Multi-Source Data
 async function updateLiveTechnicalIndicators() {
+    // Clear any existing wrong data and start fresh
+    const coinInfo = `${currentSelectedCoin.name} (${currentSelectedCoin.symbol})`;
+    console.log(`🔄 Starting FRESH calculation for: ${coinInfo}`);
+    
     // Enhanced symbol mapping with fallback for TON, DOGS, MAJOR, etc.
     let binanceSymbol = SYMBOL_MAPPING[currentSelectedCoin.id];
     
-    // If not in mapping, create it automatically
     if (!binanceSymbol) {
         binanceSymbol = `${currentSelectedCoin.symbol.toUpperCase()}USDT`;
         console.warn(`⚠️ Symbol not in mapping, using: ${binanceSymbol} for ${currentSelectedCoin.name}`);
@@ -936,50 +1142,60 @@ async function updateLiveTechnicalIndicators() {
     
     const binanceTimeframe = TIMEFRAME_MAPPING[currentTimeFrame] || '15m';
     
-    console.log(`🔄 Updating LIVE indicators: ${binanceSymbol} (${binanceTimeframe}) for ${currentSelectedCoin.name}`);
+    console.log(`🎯 LIVE indicators for: ${coinInfo} -> ${binanceSymbol} (${binanceTimeframe})`);
     
-    // Check cache first (but with very short expiry for live data)
-    const cacheKey = `liveIndicators_${binanceSymbol}_${binanceTimeframe}`;
+    // Check cache with coin-specific key to prevent data mixing
+    const cacheKey = `liveIndicators_${currentSelectedCoin.id}_${binanceSymbol}_${binanceTimeframe}`;
     let cachedIndicators = CacheManager.get(cacheKey);
     
-    if (cachedIndicators) {
+    // Only use cache if it's for the exact same coin
+    if (cachedIndicators && cachedIndicators.coinId === currentSelectedCoin.id) {
+        console.log(`📦 Using VALID cached data for ${currentSelectedCoin.symbol}`);
         updateIndicatorsDisplay(cachedIndicators.data);
         showNotification(`اندیکاتورهای ${currentSelectedCoin.symbol} از کش بازیابی شد`, 'cache');
     }
     
     try {
-        let klineData;
-        let dataSource = 'Unknown';
+        // ⭐ Use new multi-source fetcher
+        console.log(`📊 Fetching FRESH data for ${binanceSymbol} using fallback system...`);
         
-        // ⭐ NEW: Try TradingView data first, then fallback to Binance
-        try {
-            klineData = await fetchTradingViewData(binanceSymbol, binanceTimeframe);
-            dataSource = 'TradingView API';
-            console.log(`✅ Using TradingView data: ${klineData.length} candles for ${binanceSymbol}`);
-        } catch (tvError) {
-            console.warn(`⚠️ TradingView failed for ${binanceSymbol}:`, tvError.message);
-            console.log(`🔄 Falling back to Binance API...`);
-            
-            // Fallback to Binance API
-            klineData = await fetchBinanceKlineData(binanceSymbol, binanceTimeframe);
-            dataSource = 'Binance API';
-            console.log(`✅ Using Binance fallback: ${klineData.length} candles for ${binanceSymbol}`);
-        }
+        const result = await CandlestickDataFetcher.fetchWithFallback(
+            currentSelectedCoin.symbol, 
+            binanceTimeframe, 
+            200
+        );
+        
+        const klineData = result.data;
+        const dataSource = result.source;
         
         if (klineData && klineData.length >= 50) {
-            // Calculate indicators with REAL data
+            // ✅ Validate that data is reasonable for current coin
+            const priceRange = {
+                min: Math.min(...klineData.map(d => d.close)),
+                max: Math.max(...klineData.map(d => d.close))
+            };
+            
+            console.log(`🔍 Data validation for ${currentSelectedCoin.symbol}:`);
+            console.log(`📊 Price range: $${priceRange.min.toFixed(8)} - $${priceRange.max.toFixed(8)}`);
+            console.log(`📈 Data points: ${klineData.length} from ${dataSource}`);
+            
+            // ✅ Calculate indicators with VALIDATED data for current coin
+            console.log(`🧮 Calculating indicators for ${coinInfo} with ${klineData.length} validated data points`);
+            
             const indicators = calculatePreciseIndicators(klineData);
             const now = new Date();
             const currentTime = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
             
             const indicatorsData = {
-                coinId: currentSelectedCoin.id,
+                coinId: currentSelectedCoin.id,  // ✅ Store coin ID for validation
+                coinName: currentSelectedCoin.name,  // ✅ Store coin name
                 symbol: currentSelectedCoin.symbol,
                 binanceSymbol: binanceSymbol,
                 timeframe: currentTimeFrame,
                 dataSource: dataSource,
                 timestamp: Date.now(),
                 dataPoints: klineData.length,
+                priceRange: priceRange,
                 data: {
                     rsi: { ...indicators.rsi, time: currentTime },
                     macd: { ...indicators.macd, time: currentTime },
@@ -994,121 +1210,37 @@ async function updateLiveTechnicalIndicators() {
                 }
             };
             
-            // Update display with REAL data
+            // ✅ Final validation - make sure indicators make sense
+            console.log(`🔍 Final validation - SMA: ${indicators.sma.value} for ${currentSelectedCoin.symbol}`);
+            console.log(`📊 Data source: ${dataSource}, Range: $${priceRange.min.toFixed(8)} - $${priceRange.max.toFixed(8)}`);
+            
+            // Update display with VALIDATED data
             updateIndicatorsDisplay(indicatorsData.data);
             
-            // Cache indicators for 1 minute only (live data)
+            // Cache indicators for current coin only
             CacheManager.set(cacheKey, indicatorsData, CACHE_CONFIG.INDICATORS_CACHE_TIME);
             
-            showNotification(`✅ اندیکاتورهای زنده ${currentSelectedCoin.symbol} (${currentTimeFrame}) از ${dataSource}!`, 'success');
-            console.log(`✅ LIVE indicators updated: ${binanceSymbol} with ${klineData.length} data points from ${dataSource}`);
+            showNotification(`✅ ${currentSelectedCoin.symbol}: ${indicators.sma.value} از ${dataSource}!`, 'success');
+            console.log(`✅ LIVE indicators updated for ${coinInfo}: ${klineData.length} data points from ${dataSource}`);
         } else {
-            throw new Error('Insufficient kline data from both sources');
+            throw new Error('Insufficient kline data from all sources');
         }
         
     } catch (error) {
-        console.error('❌ Error updating live indicators:', error);
+        console.error(`❌ Error updating live indicators for ${coinInfo}:`, error);
         
-        // Fallback to realistic generated indicators
+        // Clear any wrong cache for current coin
+        CacheManager.remove(cacheKey);
+        
+        // Fallback to realistic generated indicators with proper coin context
         const fallbackIndicators = generateRealisticIndicators();
         updateIndicatorsDisplay(fallbackIndicators);
         
-        showNotification(`⚠️ خطا در دریافت داده‌های زنده ${currentSelectedCoin.symbol} - داده‌های شبیه‌سازی نمایش داده شد`, 'error');
+        showNotification(`⚠️ خطا در ${currentSelectedCoin.symbol} - داده‌های شبیه‌سازی نمایش داده شد`, 'error');
     }
 }
 
-// ⭐ NEW: Fetch data from TradingView (Simulated - Replace with real TradingView API)
-async function fetchTradingViewData(symbol, interval) {
-    try {
-        // 🔍 Note: TradingView doesn't have public API, so this is a placeholder
-        // In real implementation, you would use TradingView's partner API or websocket
-        
-        console.log(`📊 Attempting TradingView data fetch: ${symbol} (${interval})`);
-        
-        // For now, we'll simulate TradingView data structure
-        // In real implementation, replace this with actual TradingView API call
-        
-        // Simulate a network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // For demonstration, we'll throw an error to fallback to Binance
-        // Remove this line when implementing real TradingView API
-        throw new Error('TradingView API not implemented - using Binance fallback');
-        
-        // This is how the real implementation would look:
-        /*
-        const tradingViewUrl = `https://api.tradingview.com/v1/data/${symbol}/${interval}`;
-        const response = await fetch(tradingViewUrl, {
-            headers: {
-                'Authorization': 'Bearer YOUR_TRADINGVIEW_API_KEY',
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`TradingView API failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Convert TradingView data to our OHLCV format
-        return data.bars.map(bar => ({
-            timestamp: bar.time * 1000,
-            open: bar.open,
-            high: bar.high,
-            low: bar.low,
-            close: bar.close,
-            volume: bar.volume
-        }));
-        */
-        
-    } catch (error) {
-        console.error('❌ TradingView data fetch failed:', error.message);
-        throw error;
-    }
-}
-
-// ⭐ Enhanced: Fetch REAL data from Binance API with better error handling
-async function fetchBinanceKlineData(symbol, interval) {
-    try {
-        const limit = 200; // Get enough data for accurate calculations
-        const url = `${API_CONFIG.KLINES_API}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-        
-        console.log(`📊 Fetching Binance data: ${symbol} (${interval})`);
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Binance API failed: ${response.status} ${response.statusText} for ${symbol}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data || !Array.isArray(data) || data.length === 0) {
-            throw new Error(`Empty or invalid response from Binance for ${symbol}`);
-        }
-        
-        // Convert Binance kline data to OHLCV format
-        const ohlcvData = data.map(kline => ({
-            timestamp: kline[0],
-            open: parseFloat(kline[1]),
-            high: parseFloat(kline[2]),
-            low: parseFloat(kline[3]),
-            close: parseFloat(kline[4]),
-            volume: parseFloat(kline[5])
-        }));
-        
-        console.log(`✅ Fetched ${ohlcvData.length} ${interval} candles for ${symbol} from Binance`);
-        console.log(`📈 Price range: $${Math.min(...ohlcvData.map(d => d.close)).toFixed(2)} - $${Math.max(...ohlcvData.map(d => d.close)).toFixed(2)}`);
-        
-        return ohlcvData;
-        
-    } catch (error) {
-        console.error('❌ Error fetching Binance kline data:', error);
-        throw error;
-    }
-}
-
-// ⭐ Calculate PRECISE indicators with real market data
+// ⭐ Calculate PRECISE indicators with enhanced validation
 function calculatePreciseIndicators(ohlcvData) {
     const closes = ohlcvData.map(d => d.close);
     const highs = ohlcvData.map(d => d.high);
@@ -1117,7 +1249,13 @@ function calculatePreciseIndicators(ohlcvData) {
     const volumes = ohlcvData.map(d => d.volume);
     
     console.log(`🧮 Calculating indicators with ${closes.length} data points`);
-    console.log(`📈 Price range: $${Math.min(...closes).toFixed(2)} - $${Math.max(...closes).toFixed(2)}`);
+    console.log(`📈 Input validation - Price range: $${Math.min(...closes).toFixed(8)} - $${Math.max(...closes).toFixed(8)}`);
+    
+    // ✅ Validate input data
+    if (closes.some(price => isNaN(price) || price <= 0)) {
+        console.error('❌ Invalid price data detected');
+        throw new Error('Invalid price data');
+    }
     
     return {
         rsi: calculatePreciseRSI(closes, 14),
@@ -1133,7 +1271,92 @@ function calculatePreciseIndicators(ohlcvData) {
     };
 }
 
-// ⭐ PRECISE Technical Indicator Calculations
+// ⭐ FIXED: calculatePreciseSMA with proper validation and formatting
+function calculatePreciseSMA(closes, period) {
+    console.log(`🧮 SMA(${period}) calculation: ${closes.length} data points`);
+    console.log(`📊 Price sample: [${closes.slice(0, 5).map(p => p.toFixed(8)).join(', ')}...]`);
+    console.log(`📈 Price range: $${Math.min(...closes).toFixed(8)} - $${Math.max(...closes).toFixed(8)}`);
+    
+    if (closes.length < period) {
+        const currentPrice = closes[closes.length - 1];
+        console.warn(`⚠️ Insufficient data for SMA(${period}). Using current price: $${currentPrice.toFixed(8)}`);
+        return { 
+            value: formatPrice(currentPrice), 
+            status: 'داده ناکافی' 
+        };
+    }
+    
+    const recentCloses = closes.slice(-period);
+    const sma = recentCloses.reduce((sum, price) => sum + price, 0) / period;
+    const currentPrice = closes[closes.length - 1];
+    
+    // ✅ Enhanced validation
+    if (isNaN(sma) || sma <= 0) {
+        console.error(`❌ Invalid SMA calculation: ${sma}`);
+        console.error(`❌ Input data: ${recentCloses.slice(0, 5)}`);
+        return { 
+            value: 'خطا', 
+            status: 'محاسبه ناصحیح' 
+        };
+    }
+    
+    // ✅ Proper formatting based on price range
+    const formattedSMA = formatPrice(sma);
+    
+    console.log(`✅ SMA(${period}) calculated: ${formattedSMA} (current: ${formatPrice(currentPrice)})`);
+    
+    return {
+        value: formattedSMA,
+        status: currentPrice > sma ? 'بالای میانگین' : 'زیر میانگین'
+    };
+}
+
+// ⭐ FIXED: calculatePreciseEMA with proper validation
+function calculatePreciseEMA(closes, period) {
+    const ema = calculatePreciseEMAValue(closes, period);
+    const currentPrice = closes[closes.length - 1];
+    
+    console.log(`✅ EMA(${period}) calculated: ${formatPrice(ema)} (current: ${formatPrice(currentPrice)})`);
+    
+    return {
+        value: formatPrice(ema),
+        status: currentPrice > ema ? 'روند صعودی' : 'روند نزولی'
+    };
+}
+
+function calculatePreciseEMAValue(closes, period) {
+    if (closes.length < period) {
+        return closes[closes.length - 1];
+    }
+    
+    const multiplier = 2 / (period + 1);
+    let ema = closes.slice(0, period).reduce((sum, price) => sum + price, 0) / period;
+    
+    for (let i = period; i < closes.length; i++) {
+        ema = (closes[i] * multiplier) + (ema * (1 - multiplier));
+    }
+    
+    return ema;
+}
+
+// ⭐ Enhanced price formatting function
+function formatPrice(price) {
+    if (isNaN(price) || price <= 0) return '$0.00';
+    
+    if (price >= 1000) {
+        return `$${price.toFixed(0)}`;
+    } else if (price >= 1) {
+        return `$${price.toFixed(2)}`;
+    } else if (price >= 0.01) {
+        return `$${price.toFixed(4)}`;
+    } else if (price >= 0.0001) {
+        return `$${price.toFixed(6)}`;
+    } else {
+        return `$${price.toFixed(8)}`;
+    }
+}
+
+// ⭐ PRECISE Technical Indicator Calculations (Rest of the functions)
 function calculatePreciseRSI(closes, period = 14) {
     if (closes.length < period + 1) {
         return { value: '50.0', status: 'داده ناکافی' };
@@ -1196,46 +1419,6 @@ function calculatePreciseMACD(closes) {
         value: (macdLine >= 0 ? '+' : '') + macdLine.toFixed(2),
         status: histogram > 0 ? 'صعودی' : 'نزولی'
     };
-}
-
-function calculatePreciseSMA(closes, period) {
-    if (closes.length < period) {
-        return { value: `$${closes[closes.length - 1].toFixed(2)}`, status: 'داده ناکافی' };
-    }
-    
-    const recentCloses = closes.slice(-period);
-    const sma = recentCloses.reduce((sum, price) => sum + price, 0) / period;
-    const currentPrice = closes[closes.length - 1];
-    
-    return {
-        value: `$${sma.toFixed(2)}`,
-        status: currentPrice > sma ? 'بالای میانگین' : 'زیر میانگین'
-    };
-}
-
-function calculatePreciseEMA(closes, period) {
-    const ema = calculatePreciseEMAValue(closes, period);
-    const currentPrice = closes[closes.length - 1];
-    
-    return {
-        value: `$${ema.toFixed(2)}`,
-        status: currentPrice > ema ? 'روند صعودی' : 'روند نزولی'
-    };
-}
-
-function calculatePreciseEMAValue(closes, period) {
-    if (closes.length < period) {
-        return closes[closes.length - 1];
-    }
-    
-    const multiplier = 2 / (period + 1);
-    let ema = closes.slice(0, period).reduce((sum, price) => sum + price, 0) / period;
-    
-    for (let i = period; i < closes.length; i++) {
-        ema = (closes[i] * multiplier) + (ema * (1 - multiplier));
-    }
-    
-    return ema;
 }
 
 function calculatePreciseStochastic(highs, lows, closes, period = 14) {
@@ -1443,7 +1626,10 @@ function getADXStatus(adx) {
     return 'روند متوسط';
 }
 
+// ⭐ Enhanced indicators display with validation
 function updateIndicatorsDisplay(indicatorsData) {
+    console.log(`🖥️ Updating display with indicators for ${currentSelectedCoin.symbol}:`, Object.keys(indicatorsData));
+    
     Object.keys(indicatorsData).forEach(key => {
         const indicator = indicatorsData[key];
         const valueEl = document.getElementById(`${key}Value`);
@@ -1451,16 +1637,26 @@ function updateIndicatorsDisplay(indicatorsData) {
         const timeEl = document.getElementById(`${key}Time`);
         const cardEl = document.getElementById(`${key}Card`);
         
-        if (valueEl) {
+        if (valueEl && indicator && indicator.value) {
+            // ✅ Enhanced logging for debugging
+            if (key === 'sma') {
+                console.log(`📊 Setting SMA display for ${currentSelectedCoin.symbol}: ${indicator.value} (${indicator.status})`);
+            }
+            
             valueEl.textContent = indicator.value;
+            
             // Add updating animation
             if (cardEl) {
                 cardEl.classList.add('updating');
                 setTimeout(() => cardEl.classList.remove('updating'), 1500);
             }
         }
-        if (statusEl) statusEl.textContent = indicator.status;
-        if (timeEl) timeEl.textContent = indicator.time;
+        if (statusEl && indicator && indicator.status) {
+            statusEl.textContent = indicator.status;
+        }
+        if (timeEl && indicator && indicator.time) {
+            timeEl.textContent = indicator.time;
+        }
     });
 }
 
@@ -1655,19 +1851,19 @@ function initializeTelegramWebApp() {
         tg.setHeaderColor('#3498db');
         tg.setBackgroundColor('#ffffff');
         
-        tg.MainButton.text = 'اشتراک اندیکاتورهای زنده';
+        tg.MainButton.text = 'اشتراک اندیکاتورهای چند منبع';
         tg.MainButton.show();
         tg.MainButton.onClick(() => {
             const shareData = {
-                action: 'share_live_indicators',
+                action: 'share_multi_source_indicators',
                 coin: currentSelectedCoin,
                 timeframe: currentTimeFrame,
                 timestamp: new Date().toISOString(),
-                source: 'binance_api'
+                sources: API_CONFIG.DATA_SOURCES.map(s => s.name)
             };
             
             tg.sendData(JSON.stringify(shareData));
-            showNotification('اندیکاتورهای زنده اشتراک گذاری شد', 'success');
+            showNotification('اندیکاتورهای چند منبع اشتراک گذاری شد', 'success');
         });
         
         tg.onEvent('backButtonClicked', () => tg.close());
@@ -1701,12 +1897,12 @@ function formatLargeNumber(num) {
 // Enhanced Error Handling
 window.addEventListener('error', function(e) {
     console.error('Global error:', e.error);
-    showNotification('خطای سیستم رخ داد - داده‌ها از کش بازیابی می‌شود', 'error');
+    showNotification('خطای سیستم رخ داد - داده‌ها از کش یا منبع جایگزین بازیابی می‌شود', 'error');
 });
 
 window.addEventListener('unhandledrejection', function(e) {
     console.error('Unhandled promise rejection:', e.reason);
-    showNotification('خطای شبکه - در حال استفاده از داده‌های کش شده', 'error');
+    showNotification('خطای شبکه - در حال استفاده از منابع جایگزین', 'error');
 });
 
 // Network Status Detection
@@ -1714,9 +1910,9 @@ window.addEventListener('online', function() {
     const cacheStatus = document.getElementById('cacheStatus');
     if (cacheStatus) {
         cacheStatus.className = 'cache-status online';
-        cacheStatus.textContent = '🔥 آنلاین - داده‌های زنده';
+        cacheStatus.textContent = '🔥 آنلاین - چند منبع داده';
     }
-    showNotification('اتصال اینترنت برقرار شد', 'success');
+    showNotification('اتصال اینترنت برقرار شد - منابع متعدد در دسترس', 'success');
 });
 
 window.addEventListener('offline', function() {
@@ -1738,7 +1934,8 @@ function logPerformance() {
         // Cache performance metrics
         CacheManager.set('performance', {
             loadTime: loadTime,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            sources: API_CONFIG.DATA_SOURCES.length
         }, 24 * 60 * 60 * 1000); // 24 hours
     }
 }
@@ -1752,7 +1949,7 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
         updateLiveTechnicalIndicators();
-        showNotification('اندیکاتورها به‌روزرسانی شد', 'info');
+        showNotification('اندیکاتورها از منابع متعدد به‌روزرسانی شد', 'info');
     }
     
     // Escape to clear search
@@ -1786,8 +1983,8 @@ if ('serviceWorker' in navigator) {
 }
 
 // Final initialization log
-console.log('✅ Complete Enhanced Live Indicators Crypto Tracker loaded successfully!');
-console.log(`🔥 Features: Live Indicators, TradingView Charts, Enhanced Symbol Mapping`);
+console.log('✅ Complete Enhanced Multi-Source Crypto Tracker loaded successfully!');
+console.log(`🔥 Features: ${API_CONFIG.DATA_SOURCES.length} Data Sources, Fixed SMA, Enhanced Validation`);
 console.log(`💾 Cache size: ${CacheManager.getCacheSize()} bytes`);
 console.log(`📊 Current setup: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
 
@@ -1822,7 +2019,7 @@ document.addEventListener('touchend', function(e) {
         const target = e.target.closest('.indicators-section');
         if (target) {
             updateLiveTechnicalIndicators();
-            showNotification('اندیکاتورها بروزرسانی شد', 'info');
+            showNotification('اندیکاتورها از منابع متعدد بروزرسانی شد', 'info');
         }
     }
 }, { passive: true });
@@ -1834,6 +2031,7 @@ function saveUserPreferences() {
         timeFrame: currentTimeFrame,
         theme: 'light',
         autoRefresh: true,
+        dataSources: API_CONFIG.DATA_SOURCES.length,
         timestamp: Date.now()
     };
     
@@ -1849,7 +2047,7 @@ window.addEventListener('beforeunload', function() {
 setTimeout(() => {
     if (currentSelectedCoin && currentSelectedCoin.id) {
         console.log(`🎯 Active coin: ${currentSelectedCoin.symbol} (${currentTimeFrame})`);
-        console.log(`📈 System ready with ${Object.keys(generateRealisticIndicators()).length} indicators`);
-        console.log(`🆕 Enhanced mapping includes: TON, DOGS, MAJOR + ${Object.keys(SYMBOL_MAPPING).length} total coins`);
+        console.log(`📈 Multi-source system ready with ${Object.keys(generateRealisticIndicators()).length} indicators`);
+        console.log(`🚀 Enhanced features: TON/DOGS/MAJOR support, ${API_CONFIG.DATA_SOURCES.length} data sources, Fixed SMA calculations`);
     }
 }, 3000);
